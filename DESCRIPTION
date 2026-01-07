@@ -1,0 +1,15 @@
+Package: Nouel2026MouseBehavior
+Title: A package for analyzing mouse behavior data from Liz Nouel's paper
+Version: 0.0.0.9000
+Authors@R:
+    person("Kyle", "Schaubroeck", , "kyle.schaubroeck@wisc.edu", role = c("aut", "cre"),
+           comment = c(ORCID = "0009-0001-7011-4041"))
+Description: This package provides tools for analyzing and visualizing
+    mouse behavior data as presented in Liz Nouel's 2026 paper on mouse
+    behavioral patterns.
+License: MIT + file LICENSE
+Depends:
+    R (>= 4.3.0)
+Encoding: UTF-8
+Roxygen: list(markdown = TRUE)
+RoxygenNote: 7.3.3
