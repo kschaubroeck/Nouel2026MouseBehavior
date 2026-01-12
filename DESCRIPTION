@@ -15,16 +15,20 @@ Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.3
 Imports: 
     cli,
+    clubSandwich,
     dplyr,
+    emmeans,
     fs,
     ggplot2,
     glue,
+    graphics,
     purrr,
     ragg,
-    readr,
     rlang,
     S7,
-    stringr,
+    sandwich,
+    stats,
     tibble,
+    tidyselect,
     vctrs,
     withr

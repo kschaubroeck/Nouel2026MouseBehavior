@@ -1,12 +1,24 @@
+#' Create a List of Quosures for Graphics Layers
+#'
+#' @description
+#' Helper function to capture additional ggplot2 layers as quosures. This is useful
+#' for passing extra graphics elements to plotting functions.
+#'
+#' @param ... Additional ggplot2 layer expressions to be captured as quosures
+#'
+#' @return A list of quosures containing the unevaluated expressions
+#' @export
 graphics <- function(...) enquos(...)
-
 
 #' Plot Estimated Marginal Means
 #'
-#' Creates visualizations of estimated marginal means with error bars,
-#' integrating style themes, faceting, and custom graphics layers.
+#' @description
+#' Creates visualizations of estimated marginal means (EMMs) with confidence intervals.
+#' The function supports custom styling, faceting, coloring by variables, and additional
+#' ggplot2 layers for flexible, publication-ready plots.
 #'
-#' @param .results A named list of data frames containing EMM results
+#' @param .results A named list of data frames containing EMM results. Each data frame
+#'   should include columns for adjusted means and confidence intervals
 #' @param .covariates A tidyselect specification of covariate columns for x-axis
 #' @param ... Additional arguments (must be empty)
 #' @param .color Optional tidyselect specification for coloring points by variable
@@ -159,11 +171,15 @@ plot_emm <- function(
 
 #' Plot Pairwise Comparisons
 #'
-#' Creates visualizations of pairwise comparisons (estimates with CIs),
-#' where the user can select one or more covariate columns to form the
-#' y-axis grouping (interaction of selected covariates).
+#' @description
+#' Creates visualizations of pairwise comparisons with confidence intervals. Handles
+#' both difference estimates and ratios, automatically detecting which type is present.
+#' The user can select one or more covariate columns to form the y-axis grouping
+#' (interaction of selected covariates). Supports custom styling, faceting, and
+#' reference lines for easier interpretation.
 #'
-#' @param .results A named list of data frames containing comparison results
+#' @param .results A named list of data frames containing comparison results. Each data
+#'   frame should include either `estimate` or `ratio` column along with confidence intervals
 #' @param .covariates A tidyselect specification of covariate columns for y-axis
 #' @param ... Additional arguments (must be empty)
 #' @param .color Optional tidyselect specification for coloring points by variable
@@ -171,6 +187,8 @@ plot_emm <- function(
 #' @param .styles Optional styles object created by `new_styles()` for styling
 #' @param .extra Optional list of quosures for additional ggplot2 layers
 #' @param .writer Optional PlotOutput object created by `plot_writer()` for saving plots
+#' @param .ref_line Logical indicating whether to add a reference line at 0 (for estimates)
+#'   or 1 (for ratios). Default is `TRUE`
 #'
 #' @return If `.writer` is provided, invisibly returns saved plot paths.
 #'   Otherwise, returns a list of ggplot objects.
@@ -179,7 +197,7 @@ plot_compare <- function(
   .results,
   .covariates,
   ...,
-  .color = .covariates,
+  .color = NULL,
   .layout = NULL,
   .styles = NULL,
   .extra = NULL,

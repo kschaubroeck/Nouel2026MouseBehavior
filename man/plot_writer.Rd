@@ -17,7 +17,7 @@ plot_writer(
 \arguments{
 \item{.outdir}{Output directory path (default: ".")}
 
-\item{.ext}{File extension for plot files: "png", "jpg", "jpeg", "tiff", or "bmp" (default: "png")}
+\item{.ext}{File extension for plot files: "png", "jpg", "jpeg", "tiff", or "webp" (default: "png")}
 
 \item{.width}{Plot width (default: 6)}
 

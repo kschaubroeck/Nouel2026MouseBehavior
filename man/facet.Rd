@@ -18,6 +18,8 @@ facet(
 )
 }
 \arguments{
+\item{...}{These dots are for future extensions and must be empty}
+
 \item{rows}{Variables to use for row facets (unquoted variable names)}
 
 \item{cols}{Variables to use for column facets (unquoted variable names)}

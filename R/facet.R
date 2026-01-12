@@ -57,6 +57,7 @@ is_facet <- function(x) {
 #' User-friendly constructor for facet specifications. Specify variables by name
 #' without needing to know formula syntax.
 #'
+#' @param ... These dots are for future extensions and must be empty
 #' @param rows Variables to use for row facets (unquoted variable names)
 #' @param cols Variables to use for column facets (unquoted variable names)
 #' @param type Either "wrap" or "grid" for `facet_wrap()` or `facet_grid()`.
@@ -150,12 +151,16 @@ facet <- function(
   )
 }
 
-#' Generic: Convert to facet layer
+#' Convert Object to ggplot2 Facet Layer
 #'
-#' Create a generic function for converting objects to a ggplot2 facet layer.
+#' @description
+#' Generic function for converting facet specification objects into ggplot2 facet layers.
+#' This allows seamless integration of custom facet objects with ggplot2 visualizations.
 #'
-#' @param x Object to convert.
-#' @return A ggplot2 facet layer or an object understood by ggplot2.
+#' @param x Object to convert, typically a `Facet` object created by `facet()`
+#' @param ... Additional arguments passed to underlying ggplot2 facet functions
+#' @return A ggplot2 facet layer (either `facet_wrap()` or `facet_grid()`) that can be
+#'   added to a ggplot object
 #' @export
 as_facet_layer <- new_generic("as_facet_layer", "x")
 

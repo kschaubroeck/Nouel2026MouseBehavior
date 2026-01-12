@@ -2,16 +2,20 @@
 % Please edit documentation in R/facet.R
 \name{as_facet_layer}
 \alias{as_facet_layer}
-\title{Generic: Convert to facet layer}
+\title{Convert Object to ggplot2 Facet Layer}
 \usage{
 as_facet_layer(x, ...)
 }
 \arguments{
-\item{x}{Object to convert.}
+\item{x}{Object to convert, typically a \code{Facet} object created by \code{facet()}}
+
+\item{...}{Additional arguments passed to underlying ggplot2 facet functions}
 }
 \value{
-A ggplot2 facet layer or an object understood by ggplot2.
+A ggplot2 facet layer (either \code{facet_wrap()} or \code{facet_grid()}) that can be
+added to a ggplot object
 }
 \description{
-Create a generic function for converting objects to a ggplot2 facet layer.
+Generic function for converting facet specification objects into ggplot2 facet layers.
+This allows seamless integration of custom facet objects with ggplot2 visualizations.
 }
