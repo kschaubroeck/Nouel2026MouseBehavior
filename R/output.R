@@ -1,0 +1,420 @@
+validate_string <- function(allow_empty = FALSE) {
+  force(allow_empty)
+  function(value) {
+    if (length(value) != 1L) {
+      "must be a single string"
+    } else if (!allow_empty && !nzchar(value)) {
+      "must be a single non-empty string"
+    }
+  }
+}
+
+validate_positive_number <- function(integer_only = FALSE) {
+  force(integer_only)
+  function(value) {
+    if (length(value) != 1L || value <= 0) {
+      sprintf(
+        "must be a single positive %s",
+        if (integer_only) "integer" else "number"
+      )
+    }
+  }
+}
+
+validate_choice <- function(allowed) {
+  force(allowed)
+  function(value) {
+    if (length(value) != 1L || !(value %in% allowed)) {
+      sprintf("must be one of: %s", paste(allowed, collapse = ", "))
+    }
+  }
+}
+
+validate_boolean <- function(value) {
+  if (length(value) != 1L || is.na(value)) "must be a single boolean"
+}
+
+# Property definitions
+prop_outdir <- new_property(class_character, validator = validate_string())
+prop_prefix <- new_property(
+  class_character,
+  validator = validate_string(allow_empty = TRUE)
+)
+prop_overwrite <- new_property(class_logical, validator = validate_boolean)
+prop_width <- new_property(class_double, validator = validate_positive_number())
+prop_height <- new_property(
+  class_double,
+  validator = validate_positive_number()
+)
+prop_units <- new_property(class_character, validator = validate_string())
+prop_dpi <- new_property(
+  class_integer,
+  validator = validate_positive_number(integer_only = TRUE)
+)
+prop_ext <- new_property(class_character, validator = validate_string())
+prop_data_ext <- new_property(
+  class_character,
+  validator = validate_choice(c("csv", "tsv", "rds"))
+)
+prop_plot_ext <- new_property(
+  class_character,
+  validator = validate_choice(c("png", "jpg", "jpeg", "tiff", "bmp"))
+)
+
+new_file_output <- new_class(
+  "FileOutput",
+  abstract = TRUE,
+  properties = list(
+    outdir = prop_outdir,
+    prefix = prop_prefix,
+    overwrite = prop_overwrite
+  )
+)
+
+new_data_output <- new_class(
+  "DataOutput",
+  parent = new_file_output,
+  properties = list(ext = prop_data_ext)
+)
+
+new_plot_output <- new_class(
+  "PlotOutput",
+  parent = new_file_output,
+  properties = list(
+    ext = prop_plot_ext,
+    width = prop_width,
+    height = prop_height,
+    units = prop_units,
+    dpi = prop_dpi
+  )
+)
+
+is_plot_output <- function(x) S7_inherits(x, new_plot_output)
+is_data_output <- function(x) S7_inherits(x, new_data_output)
+
+data_writer <- function(.outdir = ".", .ext = "csv", .overwrite = FALSE) {
+  .ext <- arg_match0(.ext, c("csv", "tsv", "rds"))
+
+  assert(
+    "{.arg {caller_arg(.outdir)}} must be a non-empty string.",
+    is_string(.outdir),
+    nzchar(.outdir)
+  )
+
+  assert(
+    "{.arg {caller_arg(.overwrite)}} must be a boolean.",
+    is_bool(.overwrite)
+  )
+
+  function(..., prefix = NULL, ext = NULL, overwrite = NULL) {
+    check_dots_empty0(...)
+
+    assert(
+      "{.arg {caller_arg(prefix)}} must be a string.",
+      is_null(prefix) || is_string(prefix)
+    )
+
+    assert(
+      "{.arg {caller_arg(ext)}} must be a string.",
+      is_null(ext) || is_string(ext)
+    )
+
+    assert(
+      "{.arg {caller_arg(overwrite)}} must be a boolean.",
+      is_null(overwrite) || is_bool(overwrite)
+    )
+
+    new_data_output(
+      outdir = .outdir,
+      prefix = prefix %||% "",
+      ext = if (!is_null(ext)) {
+        arg_match0(ext, c("csv", "tsv", "rds"))
+      } else {
+        .ext
+      },
+      overwrite = overwrite %||% .overwrite
+    )
+  }
+}
+
+plot_writer <- function(
+  .outdir = ".",
+  .ext = "png",
+  .width = 6,
+  .height = 4,
+  .units = "in",
+  .dpi = 300L,
+  .overwrite = FALSE
+) {
+  .ext <- arg_match0(.ext, c("csv", "tsv", "rds"))
+
+  assert(
+    "{.arg {caller_arg(.outdir)}} must be a non-empty string.",
+    is_string(.outdir),
+    nzchar(.outdir)
+  )
+
+  assert(
+    "{.arg {caller_arg(.overwrite)}} must be a boolean.",
+    is_bool(.overwrite)
+  )
+
+  assert(
+    "{.arg {caller_arg(.width)}} must be a single positive number.",
+    is_scalar_double(.width) || is_scalar_integer(.width),
+    .width > 0
+  )
+
+  assert(
+    "{.arg {caller_arg(.height)}} must be a single positive number.",
+    is_scalar_double(.height) || is_scalar_integer(.height),
+    .height > 0
+  )
+
+  assert(
+    "{.arg {caller_arg(.dpi)}} must be a single positive integer.",
+    is_scalar_integerish(.dpi),
+    .dpi > 0
+  )
+
+  assert("{.arg {caller_arg(.units)}} must be a string.", is_string(.units))
+
+  function(
+    ...,
+    prefix = NULL,
+    ext = NULL,
+    width = NULL,
+    height = NULL,
+    units = NULL,
+    dpi = NULL,
+    overwrite = NULL
+  ) {
+    check_dots_empty0(...)
+
+    assert(
+      "{.arg {caller_arg(prefix)}} must be a string.",
+      is_null(prefix) || is_string(prefix)
+    )
+
+    assert(
+      "{.arg {caller_arg(ext)}} must be a string.",
+      is_null(ext) || is_string(ext)
+    )
+
+    assert(
+      "{.arg {caller_arg(units)}} must be a string.",
+      is_null(units) || is_string(units)
+    )
+
+    assert(
+      "{.arg {caller_arg(overwrite)}} must be a boolean.",
+      is_bool(overwrite)
+    )
+
+    assert(
+      "{.arg {caller_arg(width)}} must be a single positive number.",
+      is_null(width) || (is_scalar_double(width) || is_scalar_integer(width)),
+      width > 0
+    )
+
+    assert(
+      "{.arg {caller_arg(height)}} must be a single positive number.",
+      is_null(width) || (is_scalar_double(width) || is_scalar_integer(width)),
+      height > 0
+    )
+
+    assert(
+      "{.arg {caller_arg(dpi)}} must be a single positive integer.",
+      is_scalar_integerish(dpi),
+      dpi > 0
+    )
+
+    new_plot_output(
+      outdir = .outdir,
+      prefix = prefix %||% "",
+      ext = if (!is_null(ext)) {
+        arg_match0(ext, c("png", "jpg", "jpeg", "tiff", "bmp"))
+      } else {
+        .ext
+      },
+      width = width %||% .width,
+      height = height %||% .height,
+      units = units %||% .units,
+      dpi = dpi %||% .dpi,
+      overwrite = overwrite %||% .overwrite
+    )
+  }
+}
+
+# --------------
+
+save_data <- function(.x, ..., .writer) {
+  assert(
+    "{.arg {caller_arg(.writer)}} must be a DataOutput.",
+    !is_null(.writer) && is_data_output(.writer)
+  )
+
+  assert(
+    "{.arg {caller_arg(.x)}} must be a named list.",
+    is_list(.x),
+    is_named(.x)
+  )
+
+  # Prepare output directory and file paths
+  ensure_outdir(.writer@outdir)
+  out <- build_outpaths(.x, .writer@outdir, .writer@prefix, .writer@ext)
+
+  # Write each data frame to disk
+  pwalk(
+    list(.x, names2(.x), out),
+    function(df, nm, path) {
+      if (skip_if_exists(path, .writer@overwrite, "file")) {
+        return(invisible(path))
+      }
+
+      if (!is.data.frame(df)) {
+        cli_warn("{.field {nm}} is not a data.frame; skipping.")
+        return(invisible(NULL))
+      }
+
+      try_fetch(
+        write_data_file(df, path, .writer@ext, ...),
+        error = function(e) {
+          cli_warn("Saving failed for {.field {nm}}: {conditionMessage(e)}")
+          return(NULL)
+        }
+      )
+
+      cli::cli_alert_success("Saved {.field {nm}} to {.path {path}}")
+      invisible(path)
+    }
+  )
+}
+
+map_plots <- function(.x, .f, ..., .writer, .extra = NULL, .data = NULL) {
+  assert(
+    "{.arg {caller_arg(.writer)}} must be a PlotOutput.",
+    !is_null(.writer) && is_plot_output(.writer)
+  )
+
+  assert(
+    "{.arg {caller_arg(.f)}} must be a callable function.",
+    is_callable(.f)
+  )
+
+  assert(
+    "{.arg {caller_arg(.x)}} must be a named list.",
+    is_list(.x),
+    is_named(.x)
+  )
+
+  assert(
+    "{.arg {caller_arg(.data)}} must be NULL or a data frame.",
+    is_null(.data) || is.data.frame(.data)
+  )
+
+  assert(
+    "{.arg {caller_arg(.extra)}} must be NULL or a quosure.",
+    is_null(.extra) || (is_list(.extra) && all(map_lgl(.extra, is_quosure)))
+  )
+
+  .f <- as_function(.f)
+
+  # Select appropriate graphics device for file extension
+  device_map <- list(
+    png = ragg::agg_png,
+    jpg = ragg::agg_jpeg,
+    jpeg = ragg::agg_jpeg,
+    tiff = ragg::agg_tiff,
+    bmp = ragg::agg_bmp
+  )
+
+  device <- device_map[[.writer@ext]]
+  if (is.null(device)) {
+    cli_abort("Unsupported extension: {.val {.writer@ext}}")
+  }
+
+  ensure_outdir(.writer@outdir)
+  out <- build_outpaths(.x, .writer@outdir, .writer@prefix, .writer@ext)
+
+  # Apply plotting function and save plots
+  pwalk(
+    list(.x, names2(.x), out),
+    function(variable, name, path) {
+      # Check if file exists and skip if not overwriting
+      if (skip_if_exists(path, .writer@overwrite, "plot")) {
+        return(invisible(path))
+      }
+
+      p <- try_fetch(
+        .f({{ variable }}, name, ...),
+        error = function(e) {
+          cli_warn("Plotting failed for {.field {name}}: {conditionMessage(e)}")
+          return(NULL)
+        }
+      )
+
+      if (!ggplot2::is_ggplot(p)) {
+        arg <- caller_arg(.f)
+        cli_warn(
+          "{.arg {arg}} did not return a ggplot plot for {.field {name}}."
+        )
+        return(invisible(NULL))
+      }
+
+      if (!is_null(.extra)) {
+        p <- p +
+          map_quos(.extra, name = name, variable = variable, .data = .data)
+      }
+
+      ggplot2::ggsave(
+        filename = path,
+        plot = p,
+        device = device,
+        width = .writer@width,
+        height = .writer@height,
+        units = .writer@units,
+        dpi = .writer@dpi
+      )
+
+      invisible(p)
+    }
+  )
+}
+
+# Utils ------------------------------------------------------------------------
+
+ensure_outdir <- function(outdir) {
+  if (!fs::dir_exists(outdir)) {
+    fs::dir_create(outdir, recurse = TRUE)
+  }
+  invisible(NULL)
+}
+
+build_outpaths <- function(x, outdir, prefix, ext) {
+  map_chr(names2(x), function(y) {
+    fs::path(
+      outdir,
+      fs::path_sanitize(fs::path_tidy(glue("{prefix}{y}.{ext}")))
+    )
+  })
+}
+
+# Helper to centralize writing data frames by extension
+write_data_file <- function(df, path, ext, ...) {
+  switch(
+    ext,
+    csv = readr::write_csv(df, path, ...),
+    rds = readr::write_rds(df, path, ...),
+    tsv = readr::write_tsv(df, path, ...),
+    cli::cli_abort("Unsupported data extension: {.val {ext}}")
+  )
+}
+
+skip_if_exists <- function(path, overwrite, type = "file") {
+  if (!is_true(overwrite) && fs::file_exists(path)) {
+    cli::cli_alert_info("Skipping existing {type}: {.path {path}}")
+    return(TRUE)
+  }
+  FALSE
+}

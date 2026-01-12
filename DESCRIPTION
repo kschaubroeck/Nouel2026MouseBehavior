@@ -13,3 +13,18 @@ Depends:
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.3
+Imports: 
+    cli,
+    dplyr,
+    fs,
+    ggplot2,
+    glue,
+    purrr,
+    ragg,
+    readr,
+    rlang,
+    S7,
+    stringr,
+    tibble,
+    vctrs,
+    withr
