@@ -1,5 +1,17 @@
 is_lmer <- function(x) inherits_any(x, c("lmerMod", "lmerModLmerTest"))
 
+does_error <- function(expr) {
+  tryCatch(
+    error = function(cnd) TRUE,
+    {
+      expr
+      FALSE
+    }
+  )
+}
+
+is_color <- function(y) !does_error(grDevices::col2rgb(y))
+
 map_quos <- function(.quos, ..., .quos_arg = caller_arg(.quos)) {
   dots <- dots_list(..., .named = TRUE)
   map(.quos, function(x) {
@@ -85,4 +97,26 @@ sets_match_exact <- function(set1, set2) {
   set1 <- vec_unique(set1)
   set2 <- vec_unique(set2)
   length(set1) == length(set2) && all(vec_in(set1, set2))
+}
+
+
+make_inverse_transform <- function(expr) {
+  if (is_symbol(expr)) {
+    # identity
+    return(function(y) y)
+  }
+
+  if (!is_call(expr)) {
+    return(NULL)
+  }
+
+  fname <- rlang::call_name(expr)
+  switch(
+    fname,
+    log = function(y) exp(y),
+    log10 = function(y) 10^y,
+    log2 = function(y) 2^y,
+    sqrt = function(y) y^2,
+    function(y) NA_real_
+  )
 }

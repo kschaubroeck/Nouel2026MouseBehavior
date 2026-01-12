@@ -58,7 +58,7 @@ prop_data_ext <- new_property(
 )
 prop_plot_ext <- new_property(
   class_character,
-  validator = validate_choice(c("png", "jpg", "jpeg", "tiff", "bmp"))
+  validator = validate_choice(c("png", "jpg", "jpeg", "tiff", "webp"))
 )
 
 new_file_output <- new_class(
@@ -89,9 +89,32 @@ new_plot_output <- new_class(
   )
 )
 
+#' Check if object is a PlotOutput
+#'
+#' @param x An object to test
+#' @return A logical value indicating whether the object inherits from PlotOutput
+#' @export
 is_plot_output <- function(x) S7_inherits(x, new_plot_output)
+
+#' Check if object is a DataOutput
+#'
+#' @param x An object to test
+#' @return A logical value indicating whether the object inherits from DataOutput
+#' @export
 is_data_output <- function(x) S7_inherits(x, new_data_output)
 
+#' Create a data writer function
+#'
+#' Creates a closure that generates DataOutput objects with specified default
+#' settings for writing data files to disk.
+#'
+#' @param .outdir Output directory path (default: ".")
+#' @param .ext File extension for data files: "csv", "tsv", or "rds" (default: "csv")
+#' @param .overwrite Whether to overwrite existing files (default: FALSE)
+#'
+#' @return A function that creates DataOutput objects. The returned function accepts
+#'   optional arguments: prefix, ext, and overwrite to override defaults.
+#' @export
 data_writer <- function(.outdir = ".", .ext = "csv", .overwrite = FALSE) {
   .ext <- arg_match0(.ext, c("csv", "tsv", "rds"))
 
@@ -107,7 +130,16 @@ data_writer <- function(.outdir = ".", .ext = "csv", .overwrite = FALSE) {
   )
 
   function(..., prefix = NULL, ext = NULL, overwrite = NULL) {
-    check_dots_empty0(...)
+    dots <- list(...)
+
+    if (length(dots) > 0) {
+      if (!all(map_lgl(dots, is_string))) {
+        cli_abort("{.arg ...} must be zero or more path components as strings.")
+      }
+      outdir <- exec(fs::path, .outdir, !!!dots)
+    } else {
+      outdir <- .outdir
+    }
 
     assert(
       "{.arg {caller_arg(prefix)}} must be a string.",
@@ -124,8 +156,12 @@ data_writer <- function(.outdir = ".", .ext = "csv", .overwrite = FALSE) {
       is_null(overwrite) || is_bool(overwrite)
     )
 
+    if (!is_null(ext)) {
+      ext <- arg_match0(ext, c("csv", "tsv", "rds"))
+    }
+
     new_data_output(
-      outdir = .outdir,
+      outdir = outdir,
       prefix = prefix %||% "",
       ext = if (!is_null(ext)) {
         arg_match0(ext, c("csv", "tsv", "rds"))
@@ -137,6 +173,23 @@ data_writer <- function(.outdir = ".", .ext = "csv", .overwrite = FALSE) {
   }
 }
 
+#' Create a plot writer function
+#'
+#' Creates a closure that generates PlotOutput objects with specified default
+#' settings for saving ggplot2 plots to disk.
+#'
+#' @param .outdir Output directory path (default: ".")
+#' @param .ext File extension for plot files: "png", "jpg", "jpeg", "tiff", or "webp" (default: "png")
+#' @param .width Plot width (default: 6)
+#' @param .height Plot height (default: 4)
+#' @param .units Units for width and height (default: "in")
+#' @param .dpi Plot resolution in dots per inch (default: 300L)
+#' @param .overwrite Whether to overwrite existing files (default: FALSE)
+#'
+#' @return A function that creates PlotOutput objects. The returned function accepts
+#'   optional arguments: prefix, ext, width, height, units, dpi, and overwrite to
+#'   override defaults.
+#' @export
 plot_writer <- function(
   .outdir = ".",
   .ext = "png",
@@ -146,7 +199,7 @@ plot_writer <- function(
   .dpi = 300L,
   .overwrite = FALSE
 ) {
-  .ext <- arg_match0(.ext, c("csv", "tsv", "rds"))
+  .ext <- arg_match0(.ext, c("png", "jpg", "jpeg", "tiff", "webp"))
 
   assert(
     "{.arg {caller_arg(.outdir)}} must be a non-empty string.",
@@ -189,7 +242,16 @@ plot_writer <- function(
     dpi = NULL,
     overwrite = NULL
   ) {
-    check_dots_empty0(...)
+    dots <- list(...)
+
+    if (length(dots) > 0) {
+      if (!all(map_lgl(dots, is_string))) {
+        cli_abort("{.arg ...} must be zero or more path components as strings.")
+      }
+      outdir <- exec(fs::path, .outdir, !!!dots)
+    } else {
+      outdir <- .outdir
+    }
 
     assert(
       "{.arg {caller_arg(prefix)}} must be a string.",
@@ -208,7 +270,7 @@ plot_writer <- function(
 
     assert(
       "{.arg {caller_arg(overwrite)}} must be a boolean.",
-      is_bool(overwrite)
+      is_null(overwrite) || is_bool(overwrite)
     )
 
     assert(
@@ -219,21 +281,22 @@ plot_writer <- function(
 
     assert(
       "{.arg {caller_arg(height)}} must be a single positive number.",
-      is_null(width) || (is_scalar_double(width) || is_scalar_integer(width)),
+      is_null(height) ||
+        (is_scalar_double(height) || is_scalar_integer(height)),
       height > 0
     )
 
     assert(
       "{.arg {caller_arg(dpi)}} must be a single positive integer.",
-      is_scalar_integerish(dpi),
+      is_null(width) || is_scalar_integerish(dpi),
       dpi > 0
     )
 
     new_plot_output(
-      outdir = .outdir,
+      outdir = outdir,
       prefix = prefix %||% "",
       ext = if (!is_null(ext)) {
-        arg_match0(ext, c("png", "jpg", "jpeg", "tiff", "bmp"))
+        arg_match0(ext, c("png", "jpg", "jpeg", "tiff", "webp"))
       } else {
         .ext
       },
@@ -248,6 +311,17 @@ plot_writer <- function(
 
 # --------------
 
+#' Save data frames to disk
+#'
+#' Writes a named list of data frames to disk using the specified DataOutput writer.
+#' Each data frame is saved as a separate file with a name derived from the list element name.
+#'
+#' @param .x A named list of data frames to save
+#' @param ... Additional arguments passed to the data writing function (e.g., readr::write_csv)
+#' @param .writer A DataOutput object created by data_writer() specifying output settings
+#'
+#' @return Invisibly returns the file paths of successfully saved files
+#' @export
 save_data <- function(.x, ..., .writer) {
   assert(
     "{.arg {caller_arg(.writer)}} must be a DataOutput.",
@@ -291,6 +365,20 @@ save_data <- function(.x, ..., .writer) {
   )
 }
 
+#' Map a plotting function and save plots
+#'
+#' Applies a plotting function to each element of a list and saves the resulting
+#' ggplot2 plots to disk using the specified PlotOutput writer.
+#'
+#' @param .x A named list of variables to plot
+#' @param .f A function that takes a variable and its name and returns a ggplot object
+#' @param ... Additional arguments passed to the plotting function .f
+#' @param .writer A PlotOutput object created by plot_writer() specifying output settings
+#' @param .extra Optional list of quosures to add to each plot (e.g., additional layers)
+#' @param .data Optional data frame to use when evaluating .extra quosures
+#'
+#' @return Invisibly returns the generated plots
+#' @export
 map_plots <- function(.x, .f, ..., .writer, .extra = NULL, .data = NULL) {
   assert(
     "{.arg {caller_arg(.writer)}} must be a PlotOutput.",
@@ -326,7 +414,7 @@ map_plots <- function(.x, .f, ..., .writer, .extra = NULL, .data = NULL) {
     jpg = ragg::agg_jpeg,
     jpeg = ragg::agg_jpeg,
     tiff = ragg::agg_tiff,
-    bmp = ragg::agg_bmp
+    webp = ragg::agg_webp
   )
 
   device <- device_map[[.writer@ext]]
@@ -364,7 +452,7 @@ map_plots <- function(.x, .f, ..., .writer, .extra = NULL, .data = NULL) {
 
       if (!is_null(.extra)) {
         p <- p +
-          map_quos(.extra, name = name, variable = variable, .data = .data)
+          map_quos(.extra, .name = name, .variable = variable, .data = .data)
       }
 
       ggplot2::ggsave(
@@ -377,6 +465,7 @@ map_plots <- function(.x, .f, ..., .writer, .extra = NULL, .data = NULL) {
         dpi = .writer@dpi
       )
 
+      cli::cli_alert_success("Saved plot {.field {name}} to {.path {path}}")
       invisible(p)
     }
   )
