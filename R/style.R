@@ -157,6 +157,12 @@ new_aesthetic_prop <- function(nm, class_type, validate, norm_fn) {
   )
 }
 
+#' Aesthetic
+#'
+#' S7 class describing graphical aesthetics used in styles.
+#'
+#' @return An object of class `Aesthetic`.
+#' @export
 aesthetic <- new_class(
   "Aesthetic",
   properties = list(
