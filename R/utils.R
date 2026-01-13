@@ -120,3 +120,11 @@ make_inverse_transform <- function(expr) {
     function(y) NA_real_
   )
 }
+
+attr_or <- function(x, which, default = NULL) {
+  out <- attr(x, which)
+  if (is_null(out)) {
+    return(default)
+  }
+  out
+}

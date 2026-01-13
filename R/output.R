@@ -119,15 +119,12 @@ data_writer <- function(.outdir = ".", .ext = "csv", .overwrite = FALSE) {
   .ext <- arg_match0(.ext, c("csv", "tsv", "rds"))
 
   assert(
-    "{.arg {caller_arg(.outdir)}} must be a non-empty string.",
+    "`.outdir` must be a non-empty string.",
     is_string(.outdir),
     nzchar(.outdir)
   )
 
-  assert(
-    "{.arg {caller_arg(.overwrite)}} must be a boolean.",
-    is_bool(.overwrite)
-  )
+  assert("`.overwrite` must be a boolean.", is_bool(.overwrite))
 
   function(..., prefix = NULL, ext = NULL, overwrite = NULL) {
     dots <- list(...)
@@ -142,17 +139,17 @@ data_writer <- function(.outdir = ".", .ext = "csv", .overwrite = FALSE) {
     }
 
     assert(
-      "{.arg {caller_arg(prefix)}} must be a string.",
+      "`prefix` must be a string.",
       is_null(prefix) || is_string(prefix)
     )
 
     assert(
-      "{.arg {caller_arg(ext)}} must be a string.",
+      "`ext` must be a string.",
       is_null(ext) || is_string(ext)
     )
 
     assert(
-      "{.arg {caller_arg(overwrite)}} must be a boolean.",
+      "`overwrite` must be a boolean.",
       is_null(overwrite) || is_bool(overwrite)
     )
 
@@ -202,35 +199,32 @@ plot_writer <- function(
   .ext <- arg_match0(.ext, c("png", "jpg", "jpeg", "tiff", "webp"))
 
   assert(
-    "{.arg {caller_arg(.outdir)}} must be a non-empty string.",
+    "`.outdir` must be a non-empty string.",
     is_string(.outdir),
     nzchar(.outdir)
   )
 
-  assert(
-    "{.arg {caller_arg(.overwrite)}} must be a boolean.",
-    is_bool(.overwrite)
-  )
+  assert("`.overwrite` must be a boolean.", is_bool(.overwrite))
 
   assert(
-    "{.arg {caller_arg(.width)}} must be a single positive number.",
+    "`.width` must be a single positive number.",
     is_scalar_double(.width) || is_scalar_integer(.width),
     .width > 0
   )
 
   assert(
-    "{.arg {caller_arg(.height)}} must be a single positive number.",
+    "`.height` must be a single positive number.",
     is_scalar_double(.height) || is_scalar_integer(.height),
     .height > 0
   )
 
   assert(
-    "{.arg {caller_arg(.dpi)}} must be a single positive integer.",
+    "`.dpi` must be a single positive integer.",
     is_scalar_integerish(.dpi),
     .dpi > 0
   )
 
-  assert("{.arg {caller_arg(.units)}} must be a string.", is_string(.units))
+  assert("`.units` must be a string.", is_string(.units))
 
   function(
     ...,
@@ -253,41 +247,30 @@ plot_writer <- function(
       outdir <- .outdir
     }
 
-    assert(
-      "{.arg {caller_arg(prefix)}} must be a string.",
-      is_null(prefix) || is_string(prefix)
-    )
+    assert("`prefix` must be a string.", is_null(prefix) || is_string(prefix))
+    assert("`ext` must be a string.", is_null(ext) || is_string(ext))
+    assert("`units` must be a string.", is_null(units) || is_string(units))
 
     assert(
-      "{.arg {caller_arg(ext)}} must be a string.",
-      is_null(ext) || is_string(ext)
-    )
-
-    assert(
-      "{.arg {caller_arg(units)}} must be a string.",
-      is_null(units) || is_string(units)
-    )
-
-    assert(
-      "{.arg {caller_arg(overwrite)}} must be a boolean.",
+      "`overwrite` must be a boolean.",
       is_null(overwrite) || is_bool(overwrite)
     )
 
     assert(
-      "{.arg {caller_arg(width)}} must be a single positive number.",
+      "`width` must be a single positive number.",
       is_null(width) || (is_scalar_double(width) || is_scalar_integer(width)),
       width > 0
     )
 
     assert(
-      "{.arg {caller_arg(height)}} must be a single positive number.",
+      "`height` must be a single positive number.",
       is_null(height) ||
         (is_scalar_double(height) || is_scalar_integer(height)),
       height > 0
     )
 
     assert(
-      "{.arg {caller_arg(dpi)}} must be a single positive integer.",
+      "`dpi` must be a single positive integer.",
       is_null(width) || is_scalar_integerish(dpi),
       dpi > 0
     )
@@ -324,15 +307,11 @@ plot_writer <- function(
 #' @export
 save_data <- function(.x, ..., .writer) {
   assert(
-    "{.arg {caller_arg(.writer)}} must be a DataOutput.",
+    "`.writer` must be a DataOutput.",
     !is_null(.writer) && is_data_output(.writer)
   )
 
-  assert(
-    "{.arg {caller_arg(.x)}} must be a named list.",
-    is_list(.x),
-    is_named(.x)
-  )
+  assert("`.x` must be a named list.", is_list(.x), is_named(.x))
 
   # Prepare output directory and file paths
   ensure_outdir(.writer@outdir)
@@ -375,34 +354,26 @@ save_data <- function(.x, ..., .writer) {
 #' @param ... Additional arguments passed to the plotting function .f
 #' @param .writer A PlotOutput object created by plot_writer() specifying output settings
 #' @param .extra Optional list of quosures to add to each plot (e.g., additional layers)
-#' @param .data Optional data frame to use when evaluating .extra quosures
+#' @param .data Optional data frame to use within the extra quosures
 #'
 #' @return Invisibly returns the generated plots
 #' @export
 map_plots <- function(.x, .f, ..., .writer, .extra = NULL, .data = NULL) {
   assert(
-    "{.arg {caller_arg(.writer)}} must be a PlotOutput.",
+    "`.writer` must be a PlotOutput.",
     !is_null(.writer) && is_plot_output(.writer)
   )
 
-  assert(
-    "{.arg {caller_arg(.f)}} must be a callable function.",
-    is_callable(.f)
-  )
+  assert("`.f` must be a callable function.", is_callable(.f))
+  assert("`.x` must be a named list.", is_list(.x), is_named(.x))
 
   assert(
-    "{.arg {caller_arg(.x)}} must be a named list.",
-    is_list(.x),
-    is_named(.x)
-  )
-
-  assert(
-    "{.arg {caller_arg(.data)}} must be NULL or a data frame.",
+    "`.data` must be NULL or a data frame.",
     is_null(.data) || is.data.frame(.data)
   )
 
   assert(
-    "{.arg {caller_arg(.extra)}} must be NULL or a quosure.",
+    "`.extra` must be NULL or a quosure.",
     is_null(.extra) || (is_list(.extra) && all(map_lgl(.extra, is_quosure)))
   )
 
@@ -435,7 +406,7 @@ map_plots <- function(.x, .f, ..., .writer, .extra = NULL, .data = NULL) {
       }
 
       p <- try_fetch(
-        .f({{ variable }}, name, ...),
+        .f(variable, name, ...),
         error = function(e) {
           cli_warn("Plotting failed for {.field {name}}: {conditionMessage(e)}")
           return(NULL)
@@ -443,16 +414,24 @@ map_plots <- function(.x, .f, ..., .writer, .extra = NULL, .data = NULL) {
       )
 
       if (!ggplot2::is_ggplot(p)) {
-        arg <- caller_arg(.f)
         cli_warn(
-          "{.arg {arg}} did not return a ggplot plot for {.field {name}}."
+          "{.arg .f} did not return a ggplot plot for {.field {name}}."
         )
         return(invisible(NULL))
       }
 
       if (!is_null(.extra)) {
+        model_formula <- attr_or(variable, "model_formula", NULL)
+        lhs <- if (is_formula(model_formula)) f_lhs(model_formula)
         p <- p +
-          map_quos(.extra, .name = name, .variable = variable, .data = .data)
+          map_quos(
+            .extra,
+            .input = variable,
+            .name = name,
+            .response = deparse1(lhs),
+            .lhs = lhs,
+            .tbl = .data
+          )
       }
 
       ggplot2::ggsave(

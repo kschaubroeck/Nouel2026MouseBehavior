@@ -469,13 +469,13 @@ find_style <- function(x, by) {
 # Theme scale functions -------------------------------------------------------
 
 make_scale <- function(prop, target_class, scale_fn) {
-  function(theme, keys, ...) {
+  function(x, keys, ...) {
     assert(
-      "{.arg {caller_arg(theme)}} must be a {.cls class(class_styles)} object.",
-      is_styles(theme)
+      "`x` must be a {.cls class(class_styles)} object.",
+      is_styles(x)
     )
     keys_quo <- enquo(keys)
-    p <- find_style(theme@values, !!keys_quo)
+    p <- find_style(x@values, !!keys_quo)
     if (!quo_is_null(keys_quo)) {
       p <- sort(p, by = !!keys_quo)
     }
@@ -490,13 +490,13 @@ make_scale <- function(prop, target_class, scale_fn) {
 }
 
 make_axis_scale <- function(scale_fn) {
-  function(theme, keys, ...) {
+  function(x, keys, ...) {
     assert(
-      "{.arg {caller_arg(theme)}} must be a {.cls class(class_styles)} object.",
-      is_styles(theme)
+      "`x` must be a {.cls class(class_styles)} object.",
+      is_styles(x)
     )
     keys_quo <- enquo(keys)
-    p <- find_style(theme@values, !!keys_quo)
+    p <- find_style(x@values, !!keys_quo)
     if (!quo_is_null(keys_quo)) {
       p <- sort(p, by = !!keys_quo)
     }

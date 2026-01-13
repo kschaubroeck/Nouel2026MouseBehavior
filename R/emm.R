@@ -131,7 +131,7 @@ get_vcov <- function(fit, spec, data, call = caller_env()) {
     convert(spec, class_double, fit, data, is_lmer(fit), call = call)
   } else {
     cli_abort(
-      "{.arg {caller_arg(spec)}} must be NULL or a {.cls {class_vcov_spec}} object.",
+      "`spec` must be NULL or a {.cls {class_vcov_spec}} object.",
       call = call
     )
   }
@@ -177,31 +177,31 @@ emms <- function(
   .weights <- arg_match0(.weights, c("proportional", "cell", "equal"))
 
   assert(
-    "{.arg {caller_arg(.results)}} must be a named list.",
+    "`.results` must be a named list.",
     is_list(.results),
     is_named(.results)
   )
 
   assert(
-    "{.arg {caller_arg(.seed)}} must be a single integerish value.",
+    "`.seed` must be a single integerish value.",
     is_scalar_integerish(.seed)
   )
 
   assert(
-    "{.arg {caller_arg(.level)}} must be a single numeric value between 0 and 1.",
+    "`.level` must be a single numeric value between 0 and 1.",
     is_scalar_double(.level),
     .level > 0,
     .level < 1
   )
 
   assert(
-    "{.arg {caller_arg(.vcov)}} must be NULL or a {.cls {class_vcov_spec}} object.",
+    "`.vcov` must be NULL or a {.cls {class_vcov_spec}} object.",
     S7_inherits(.vcov, class_vcov_spec) || is_null(.vcov)
   )
 
   quo_covariates <- enquo(.covariates)
   assert(
-    "{.arg {caller_arg(.covariates)}} must be provided.",
+    "`.covariates` must be provided.",
     !quo_is_null(quo_covariates) && !quo_is_missing(quo_covariates)
   )
 
@@ -268,7 +268,9 @@ emms <- function(
       return(NULL)
     }
 
-    dplyr::left_join(raw, adjusted, by = vars)
+    out <- dplyr::left_join(raw, adjusted, by = vars)
+    attr(out, "model_formula") <- stats::formula(fit)
+    out
   })
 }
 
@@ -315,25 +317,25 @@ compare <- function(
   .weights <- arg_match0(.weights, c("proportional", "cell", "equal"))
 
   assert(
-    "{.arg {caller_arg(.results)}} must be a named list.",
+    "`.results` must be a named list.",
     is_list(.results),
     is_named(.results)
   )
 
   assert(
-    "{.arg {caller_arg(.seed)}} must be a single integerish value.",
+    "`.seed` must be a single integerish value.",
     is_scalar_integerish(.seed)
   )
 
   assert(
-    "{.arg {caller_arg(.level)}} must be a single numeric value between 0 and 1.",
+    "`.level` must be a single numeric value between 0 and 1.",
     is_scalar_double(.level),
     .level > 0,
     .level < 1
   )
 
   assert(
-    "{.arg {caller_arg(.vcov)}} must be NULL or a {.cls {class_vcov_spec}} object.",
+    "`.vcov` must be NULL or a {.cls {class_vcov_spec}} object.",
     S7_inherits(.vcov, class_vcov_spec) || is_null(.vcov)
   )
 
@@ -341,12 +343,12 @@ compare <- function(
   quo_compare <- enquo(.compare)
 
   assert(
-    "{.arg {caller_arg(.covariates)}} must be provided.",
+    "`.covariates` must be provided.",
     !quo_is_null(quo_covariates) && !quo_is_missing(quo_covariates)
   )
 
   assert(
-    "{.arg {caller_arg(.compare)}} must be provided.",
+    "`.compare` must be provided.",
     !quo_is_null(quo_compare) && !quo_is_missing(quo_compare)
   )
 
@@ -386,10 +388,13 @@ compare <- function(
       emmeans::test(prs, type = .scale, by = NULL, adjust = .adjust)
     )
 
-    join_emm_tables(prs, interval, test) |>
+    out <- join_emm_tables(prs, interval, test) |>
       dplyr::mutate(hypothesis = factor(contrast)) |>
       dplyr::select(-contrast) |>
       dplyr::relocate(hypothesis)
+
+    attr(out, "model_formula") <- stats::formula(fit)
+    out
   })
 }
 
@@ -438,25 +443,25 @@ compare_by <- function(
   .weights <- arg_match0(.weights, c("proportional", "cell", "equal"))
 
   assert(
-    "{.arg {caller_arg(.results)}} must be a named list.",
+    "`.results` must be a named list.",
     is_list(.results),
     is_named(.results)
   )
 
   assert(
-    "{.arg {caller_arg(.seed)}} must be a single integerish value.",
+    "`.seed` must be a single integerish value.",
     is_scalar_integerish(.seed)
   )
 
   assert(
-    "{.arg {caller_arg(.level)}} must be a single numeric value between 0 and 1.",
+    "`.level` must be a single numeric value between 0 and 1.",
     is_scalar_double(.level),
     .level > 0,
     .level < 1
   )
 
   assert(
-    "{.arg {caller_arg(.vcov)}} must be NULL or a {.cls {class_vcov_spec}} object.",
+    "`.vcov` must be NULL or a {.cls {class_vcov_spec}} object.",
     S7_inherits(.vcov, class_vcov_spec) || is_null(.vcov)
   )
 
@@ -465,17 +470,17 @@ compare_by <- function(
   quo_conditioned <- enquo(.conditioned)
 
   assert(
-    "{.arg {caller_arg(.covariates)}} must be provided.",
+    "`.covariates` must be provided.",
     !quo_is_null(quo_covariates) && !quo_is_missing(quo_covariates)
   )
 
   assert(
-    "{.arg {caller_arg(.compare)}} must be provided.",
+    "`.compare` must be provided.",
     !quo_is_null(quo_compare) && !quo_is_missing(quo_compare)
   )
 
   assert(
-    "{.arg {caller_arg(.conditioned)}} must be provided.",
+    "`.conditioned` must be provided.",
     !quo_is_null(quo_conditioned) && !quo_is_missing(quo_conditioned)
   )
 
@@ -517,7 +522,7 @@ compare_by <- function(
       emmeans::test(prs, by = NULL, adjust = .adjust)
     )
 
-    join_emm_tables(prs, interval, test) |>
+    out <- join_emm_tables(prs, interval, test) |>
       tidyr::separate_wider_regex(
         contrast1,
         patterns = c(a = "^[^ ]+", symbol = " [^ ]+ ", b = "[^ ]+$")
@@ -530,6 +535,9 @@ compare_by <- function(
       dplyr::mutate(hypothesis = factor(hypothesis)) |>
       dplyr::select(-a, -symbol, -b, -contrast) |>
       dplyr::relocate(hypothesis)
+
+    attr(out, "model_formula") <- stats::formula(fit)
+    out
   })
 }
 
@@ -600,5 +608,7 @@ join_emm_tables <- function(prs, interval, test) {
     as_tibble()
 
   attr(out, "emm") <- prs
+  attr(out, "interval") <- interval
+  attr(out, "test") <- test
   out
 }

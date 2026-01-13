@@ -17,6 +17,11 @@ responses <- function(...) {
     .ignore_null = "all"
   )
   assert("At least one response must be provided.", length(dots) > 0L)
+  # no duplicate names allowed:
+  assert(
+    "All responses in `...` must have unique names.",
+    !vctrs::vec_duplicate_any(names(dots))
+  )
   dots
 }
 
@@ -39,17 +44,17 @@ formulas <- function(y, responses, env = caller_env()) {
   rhs <- enexpr(y)
 
   assert(
-    "{.arg {caller_arg(env)}} must be an environment",
+    "{.arg env} must be an environment",
     is_environment(env)
   )
 
   assert(
-    "{.arg {caller_arg(y)}} must be a symbol or expression",
+    "{.arg y} must be a symbol or expression",
     is_symbol(rhs) || is_call(rhs)
   )
 
   assert(
-    "{.arg {caller_arg(responses)}} must be NULL or a named list of calls",
+    "{.arg responses} must be NULL or a named list of calls",
     is_null(responses) || (is_list(responses) && is_named(responses))
   )
 
@@ -58,7 +63,7 @@ formulas <- function(y, responses, env = caller_env()) {
   }
 
   assert(
-    "Each response in {.arg {caller_arg(responses)}} must be a symbol or call",
+    "Each response in {.arg responses} must be a symbol or call",
     all(purrr::map_lgl(responses, function(.x) is_symbol(.x) || is_call(.x)))
   )
 
@@ -92,27 +97,24 @@ models <- function(
   func <- enexpr(.f)
 
   assert(
-    "{.arg {caller_arg(.formulas)}} must be a named list with at least 1 formula.",
+    "`.formulas` must be a named list with at least 1 formula.",
     is_named(.formulas),
     length(.formulas) > 0L
   )
 
   assert(
-    "{.arg {caller_arg(.data_arg)}} must be a non-empty string.",
+    "`.data_arg` must be a non-empty string.",
     is_string(.data_arg),
     nzchar(.data_arg)
   )
 
   assert(
-    "{.arg {caller_arg(.formula_arg)}} must be a non-empty string.",
+    "`.formula_arg` must be a non-empty string.",
     is_string(.formula_arg),
     nzchar(.formula_arg)
   )
 
-  assert(
-    "{.arg {caller_arg(.f)}} must be a callable function.",
-    is_callable(.f)
-  )
+  assert("`.f` must be a callable function.", is_callable(.f))
 
   data_arg <- as_string(ensym(.data_arg))
   formula_arg <- as_string(ensym(.formula_arg))
@@ -148,19 +150,19 @@ fits <- function(.data, .models, ..., .env = caller_env()) {
   check_dots_empty0(...)
 
   assert(
-    "{.arg {caller_arg(.models)}} must be a named list with at least 1 model.",
+    "`.models` must be a named list with at least 1 model.",
     is_list(.models),
     is_named(.models),
     length(.models) > 0L
   )
 
   assert(
-    "{.arg {caller_arg(.data)}} must be a data frame.",
+    "`.data` must be a data frame.",
     is.data.frame(.data)
   )
 
   assert(
-    "{.arg {caller_arg(.env)}} must be an environment.",
+    "`.env` must be an environment.",
     is_environment(.env)
   )
 
