@@ -40,8 +40,6 @@ plot_emm <- function(
   .extra = NULL,
   .writer = NULL
 ) {
-  check_dots_empty0(...)
-
   if (length(.results) == 0L) {
     cli_warn("No results to plot.")
     return(invisible(NULL))
@@ -204,8 +202,6 @@ plot_compare <- function(
   .writer = NULL,
   .ref_line = TRUE
 ) {
-  check_dots_empty0(...)
-
   if (length(.results) == 0L) {
     cli_warn("No results to plot.")
     return(invisible(NULL))
