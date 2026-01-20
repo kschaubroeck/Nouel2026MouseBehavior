@@ -156,10 +156,10 @@ plot_emm <- function(
   if (!is_null(.writer)) {
     map_plots(
       .results,
-      make_plot,
+      .f = make_plot,
       .writer = .writer,
       .extra = .extra,
-      .data = NULL
+      ...
     )
   } else {
     imap(.results, make_plot)
@@ -333,10 +333,10 @@ plot_compare <- function(
   if (!is_null(.writer)) {
     map_plots(
       .results,
-      make_plot,
+      .f = make_plot,
       .writer = .writer,
       .extra = .extra,
-      .data = NULL
+      ...
     )
   } else {
     imap(.results, make_plot)
