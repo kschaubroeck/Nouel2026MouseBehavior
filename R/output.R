@@ -392,11 +392,11 @@ combine_data <- function(
 
   read_one <- function(path) {
     ext <- tolower(fs::path_ext(path))
-    try_fetch(
+    txt <- try_fetch(
       switch(
         ext,
-        csv = readr::read_csv(path, ...),
-        tsv = readr::read_tsv(path, ...),
+        csv = readr::read_csv(path, ..., show_col_types = FALSE),
+        tsv = readr::read_tsv(path, ..., show_col_types = FALSE),
         rds = readr::read_rds(path, ...),
         cli_abort("Unsupported extension: {.val {ext}}")
       ),
@@ -406,6 +406,7 @@ combine_data <- function(
       }
     )
     cli::cli_alert_success("Read {.path {path}} successfully.")
+    txt
   }
 
   tbls <- purrr::compact(map(files, read_one))
