@@ -15,7 +15,6 @@ Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.3
 Imports:
     cli,
-    clubSandwich,
     dplyr,
     emmeans,
     fs,
@@ -26,7 +25,6 @@ Imports:
     ragg,
     rlang,
     S7,
-    sandwich,
     stats,
     tibble,
     tidyselect,

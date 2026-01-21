@@ -12,7 +12,7 @@ compare_by(
   ...,
   .scale = c("response", "link"),
   .adjust = c("mvt", "bonferroni", "sidak", "none"),
-  .weights = c("proportional", "cell", "equal"),
+  .weights = c("cell", "proportional", "flat", "equal"),
   .level = 0.95,
   .seed = 1234
 )
