@@ -26,13 +26,13 @@ emms <- function(
   .covariates,
   ...,
   .scale = c("response", "link"),
-  .weights = c("proportional", "cell", "equal"),
+  .weights = c("cell", "proportional", "flat", "equal"),
   .level = 0.95,
   .seed = 1234
 ) {
   check_dots_empty0(...)
   .scale <- arg_match0(.scale, c("response", "link"))
-  .weights <- arg_match0(.weights, c("proportional", "cell", "equal"))
+  .weights <- arg_match0(.weights, c("cell", "proportional", "flat", "equal"))
 
   assert(
     "`.results` must be a named list.",
@@ -164,7 +164,7 @@ compare <- function(
   ...,
   .scale = c("response", "link"),
   .adjust = c("mvt", "bonferroni", "sidak", "none"),
-  .weights = c("proportional", "cell", "equal"),
+  .weights = c("cell", "proportional", "flat", "equal"),
   .level = 0.95,
   .seed = 1234
 ) {
@@ -172,7 +172,7 @@ compare <- function(
 
   .scale <- arg_match0(.scale, c("response", "link"))
   .adjust <- arg_match0(.adjust, c("mvt", "bonferroni", "sidak", "none"))
-  .weights <- arg_match0(.weights, c("proportional", "cell", "equal"))
+  .weights <- arg_match0(.weights, c("cell", "proportional", "flat", "equal"))
 
   assert(
     "`.results` must be a named list.",
@@ -286,7 +286,7 @@ compare_by <- function(
   ...,
   .scale = c("response", "link"),
   .adjust = c("mvt", "bonferroni", "sidak", "none"),
-  .weights = c("proportional", "cell", "equal"),
+  .weights = c("cell", "proportional", "flat", "equal"),
   .level = 0.95,
   .seed = 1234
 ) {
@@ -294,7 +294,7 @@ compare_by <- function(
 
   .scale <- arg_match0(.scale, c("response", "link"))
   .adjust <- arg_match0(.adjust, c("mvt", "bonferroni", "sidak", "none"))
-  .weights <- arg_match0(.weights, c("proportional", "cell", "equal"))
+  .weights <- arg_match0(.weights, c("cell", "proportional", "flat", "equal"))
 
   assert(
     "`.results` must be a named list.",

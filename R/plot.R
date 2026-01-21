@@ -55,7 +55,7 @@ plot_emm <- function(
 
   assert(
     "{.arg .layout} must be a Facet object or NULL.",
-    is_null(.layout) || is_facet(.layout)
+    is_null(.layout) || is_facet_class(.layout)
   )
 
   assert(
@@ -217,7 +217,7 @@ plot_compare <- function(
 
   assert(
     "{.arg .layout} must be a Facet object or NULL.",
-    is_null(.layout) || is_facet(.layout)
+    is_null(.layout) || is_facet_class(.layout)
   )
 
   assert(
