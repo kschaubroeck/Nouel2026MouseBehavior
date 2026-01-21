@@ -246,7 +246,7 @@ compare <- function(
     out <- join_emm_tables(prs, interval, test) |>
       dplyr::mutate(hypothesis = factor(contrast)) |>
       dplyr::select(-contrast) |>
-      mutate(measure = as_string(lhs)) |>
+      dplyr::mutate(measure = as_string(lhs)) |>
       dplyr::relocate(measure, hypothesis)
 
     attr(out, "model_formula") <- frmla
