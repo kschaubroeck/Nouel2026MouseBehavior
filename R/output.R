@@ -321,6 +321,7 @@ save_data <- function(.x, ..., .writer) {
   pwalk(
     list(.x, names2(.x), out),
     function(df, nm, path) {
+      # skip_if_exists prints messasges if needed
       if (skip_if_exists(path, .writer@overwrite, "file")) {
         return(invisible(path))
       }
@@ -342,6 +343,94 @@ save_data <- function(.x, ..., .writer) {
       invisible(path)
     }
   )
+}
+
+#' Combine multiple data files into a single file
+#'
+#' Reads all data files with extensions `csv`, `tsv`, or `rds` from a directory,
+#' row-binds them together, and writes the combined table to the specified
+#' output file. Any files that fail to read are skipped with a warning.
+#'
+#' @param .dir Path to a directory containing data files to combine.
+#' @param .outfile Path to the output file to write. Must have extension
+#'   'csv', 'tsv', or 'rds'. The output directory will be created if needed.
+#' @param ... Additional arguments passed on to the appropriate `readr`
+#'   reader (`read_csv`, `read_tsv`, `read_rds`) when reading input files and
+#'   to `write_data_file()` when writing the combined output.
+#'
+#' @return Invisibly returns the combined data frame created by row-binding
+#'   the readable input files.
+#' @export
+combine_data <- function(
+  .dir,
+  .outfile,
+  ...,
+  .adjust = c("none", "bonferroni", "BH", "fdr")
+) {
+  assert("`.dir` must be a string.", is_string(.dir), nzchar(.dir))
+  assert("`.outfile` must be a string.", is_string(.outfile), nzchar(.outfile))
+  .adjust <- arg_match0(.adjust, c("none", "bonferroni", "BH", "fdr"))
+
+  # Ensure output directory exists and infer extension
+  ensure_outdir(fs::path_dir(.outfile))
+  out_ext <- tolower(fs::path_ext(.outfile))
+  if (!out_ext %in% c("csv", "tsv", "rds")) {
+    cli_abort("`.outfile` must have extension 'csv', 'tsv', or 'rds'.")
+  }
+
+  # List data files in directory
+  files <- fs::dir_ls(
+    .dir,
+    regexp = "\\.(csv|tsv|rds)$",
+    type = "file",
+    recurse = FALSE
+  )
+
+  if (length(files) == 0L) {
+    cli_abort("No data files found in {.path { .dir }}")
+  }
+
+  read_one <- function(path) {
+    ext <- tolower(fs::path_ext(path))
+    try_fetch(
+      switch(
+        ext,
+        csv = readr::read_csv(path, ...),
+        tsv = readr::read_tsv(path, ...),
+        rds = readr::read_rds(path, ...),
+        cli_abort("Unsupported extension: {.val {ext}}")
+      ),
+      error = function(e) {
+        cli_warn("Failed to read {.path {path}}: {conditionMessage(e)}")
+        NULL
+      }
+    )
+    cli::cli_alert_success("Read {.path {path}} successfully.")
+  }
+
+  tbls <- purrr::compact(map(files, read_one))
+
+  if (length(tbls) == 0L) {
+    cli_abort("No files could be read from {.path { .dir }}")
+  }
+
+  combined <- dplyr::bind_rows(tbls)
+
+  # adjust p values if needed
+  if (.adjust != "none" && "p" %in% colnames(combined)) {
+    combined <- combined |>
+      dplyr::mutate(p_adj_all = p.adjust(.data$p, method = .adjust))
+  }
+
+  try_fetch(
+    write_data_file(combined, .outfile, out_ext, ...),
+    error = function(e) {
+      cli_abort("Failed to save combined file: {conditionMessage(e)}")
+    }
+  )
+
+  cli::cli_alert_success("Saved combined data to {.path { .outfile }}")
+  invisible(combined)
 }
 
 #' Map a plotting function and save plots
@@ -401,6 +490,7 @@ map_plots <- function(.x, .f, ..., .writer, .extra = NULL, .data = NULL) {
     list(.x, names2(.x), out),
     function(variable, name, path) {
       # Check if file exists and skip if not overwriting
+      # skip_if_exists prints messasges if needed
       if (skip_if_exists(path, .writer@overwrite, "plot")) {
         return(invisible(path))
       }
@@ -423,6 +513,7 @@ map_plots <- function(.x, .f, ..., .writer, .extra = NULL, .data = NULL) {
       if (!is_null(.extra)) {
         model_formula <- attr_or(variable, "model_formula", NULL)
         lhs <- if (is_formula(model_formula)) f_lhs(model_formula)
+        frame <- attr_or(variable, "data", NULL)
         p <- p +
           map_quos(
             .extra,
@@ -430,7 +521,8 @@ map_plots <- function(.x, .f, ..., .writer, .extra = NULL, .data = NULL) {
             .name = name,
             .response = deparse1(lhs),
             .lhs = lhs,
-            .tbl = .data
+            .tbl = .data,
+            .frame = frame
           )
       }
 

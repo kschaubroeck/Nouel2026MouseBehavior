@@ -47,7 +47,7 @@ class_facet <- new_class(
 #' @param x Object to check
 #' @return `TRUE` if `x` is a `Facet` object, `FALSE` otherwise
 #' @export
-is_facet <- function(x) {
+is_facet_class <- function(x) {
   S7_inherits(x, class_facet)
 }
 

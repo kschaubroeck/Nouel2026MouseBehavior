@@ -342,3 +342,225 @@ plot_compare <- function(
     imap(.results, make_plot)
   }
 }
+
+
+#' Plot Analysis Results
+#'
+#' @description
+#' Visualize model-adjusted results with optional raw data overlay, faceting,
+#' styling, and the ability to split result sets and write output to disk.
+#'
+#' @param .results Named list of data frames with analysis results. Each data frame
+#'   must contain an `adjusted` column and typically includes `ci_lower` and
+#'   `ci_upper` for confidence intervals.
+#' @param .covariates Tidyselect specification (one or more columns) used to form the x-axis.
+#' @param ... Reserved for future arguments; currently unused.
+#' @param .with_data Logical; if TRUE, raw data points from the original `data`
+#'   attribute are plotted (default FALSE).
+#' @param .without_mean Logical; if TRUE, the estimated means and their errorbars are omitted.
+#' @param .layout Optional Facet object (from `facet()`) used for faceting.
+#' @param .split Optional column name(s) used to split each result data frame into multiple plots.
+#' @param .styles Optional Styles object from `new_styles()` to control scales and appearance.
+#' @param .extra Optional list of quosures containing additional ggplot2 layers to add.
+#' @param .writer Optional PlotOutput object from `plot_writer()`; when provided,
+#'   plots are written to disk and file paths are returned invisibly.
+#' @param .alpha Numeric alpha transparency for raw data points; default depends on `.with_data`.
+#' @param .seed Integer seed used for reproducible jittering of raw points (default 12542).
+#'
+#' @return If `.writer` is provided, invisibly returns saved file paths; otherwise
+#'   returns a named list of `ggplot` objects corresponding to `.results`.
+#' @export
+plot_analysis <- function(
+  .results,
+  .covariates,
+  ...,
+  .with_data = FALSE,
+  .without_mean = FALSE,
+  .layout = NULL,
+  .split = NULL,
+  .styles = NULL,
+  .extra = NULL,
+  .writer = NULL,
+  .alpha = if (.with_data) 0.4 else 0.7,
+  .seed = 12542
+) {
+  if (length(.results) == 0L) {
+    cli_warn("No results to plot.")
+    return(invisible(NULL))
+  }
+
+  covariates <- sym_names({{ .covariates }})
+  x_val <- as_interaction(covariates)
+  splits <- sym_names({{ .split }}, allow_null = TRUE)
+
+  make_plot <- function(data, nm) {
+    if (!all(covariates %in% names(data))) {
+      cli_warn(c(
+        "{.emph {nm}} is missing required variables.",
+        "i" = "Required variables: {.var {covariates}}",
+        "i" = "Available variables: {.var {names(data)}}"
+      ))
+      return(NULL)
+    }
+    if (!any("adjusted" == names2(data))) {
+      cli_warn("{.emph {nm}} must contain an `adjusted` column.")
+      return(NULL)
+    }
+
+    frmla <- attr_or(data, "model_formula", default = NULL)
+    if (!is_null(frmla)) {
+      response_var <- paste(deparse(f_lhs(frmla)), collapse = "")
+    } else {
+      response_var <- nm
+    }
+
+    p <- ggplot2::ggplot(
+      data,
+      ggplot2::aes(x = !!x_val, y = adjusted, color = !!x_val)
+    ) +
+      ggplot2::coord_cartesian(ylim = c(0, NA))
+
+    if (is_true(.with_data)) {
+      df <- attr_or(data, "data", default = NULL)
+      frmla <- attr_or(data, "model_formula", default = NULL)
+      if (!is_null(df) && !is_null(frmla)) {
+        lhs <- sym(paste(deparse(f_lhs(frmla)), collapse = ""))
+        p <- p +
+          ggplot2::geom_point(
+            data = df,
+            ggplot2::aes(
+              x = !!x_val,
+              y = !!lhs,
+              color = !!x_val,
+              fill = !!x_val
+            ),
+            size = 2.4,
+            alpha = .alpha,
+            position = ggplot2::position_jitter(width = 0.12)
+          )
+      }
+    }
+
+    if (is_false(.without_mean)) {
+      p <- p +
+        ggplot2::geom_errorbar(
+          ggplot2::aes(ymin = ci_lower, ymax = ci_upper),
+          width = 0.25,
+          linewidth = 1.1,
+          position = ggplot2::position_dodge2(width = 0.6, padding = 0.4)
+        ) +
+        ggplot2::geom_point(
+          size = 4,
+          stroke = 1.2
+        )
+    }
+
+    if (!is_null(.styles)) {
+      p <- p +
+        scale_color_style(.styles, keys = {{ .covariates }}) +
+        scale_fill_style(.styles, keys = {{ .covariates }}) +
+        scale_x_discrete_style(.styles, keys = {{ .covariates }})
+    }
+
+    if (!is_null(.layout)) {
+      p <- p + as_facet_layer(.layout)
+    }
+
+    p +
+      ggplot2::theme_minimal(base_size = 13) +
+      ggplot2::theme(
+        panel.grid.major.x = ggplot2::element_blank(),
+        panel.grid.minor.x = ggplot2::element_blank(),
+        legend.position = "none"
+      ) +
+      ggplot2::labs(y = response_var, x = "Groups")
+  }
+
+  # little wrapper for seeds
+  plot_with_seed <- function(...) {
+    withr::with_seed(.seed, make_plot(...))
+  }
+
+  if (!is_null(.writer)) {
+    if (!is_null(splits)) {
+      .results <- split_results(.results, splits)
+    }
+    map_plots(
+      .results,
+      .f = plot_with_seed,
+      .writer = .writer,
+      .extra = .extra,
+      ...
+    )
+  } else {
+    imap(.results, plot_with_seed)
+  }
+}
+
+split_results <- function(.results, split) {
+  out <- imap(.results, function(.x, .nm) {
+    if (any(!split %in% names(.x))) {
+      cli_warn(c(
+        "Cannot split results: missing split variables.",
+        "i" = "Required variables: {.var {split}}",
+        "i" = "Available variables: {.var {names(.x)}}"
+      ))
+      return(.x)
+    }
+
+    # group locations and split rows
+    locs <- vctrs::vec_group_loc(.x[split])
+    chunks <- vctrs::vec_chop(.x, indices = locs$loc)
+
+    # build readable group keys (keep raw keys for joining, use character keys for names)
+    raw_keys <- locs$key
+    keys_df <- raw_keys |>
+      dplyr::mutate(dplyr::across(dplyr::everything(), as.character))
+    keys_chr <- purrr::pmap_chr(keys_df, ~ paste(c(...), collapse = "_"))
+    names(chunks) <- keys_chr
+
+    # preserve and propagate attributes
+    orig_attrs <- attributes(.x)
+
+    # copy non-row metadata (except names/row.names) to each chunk
+    copy_attrs <- setdiff(names(orig_attrs), c("names", "row.names", "data"))
+    chunks <- purrr::map(chunks, function(.chunk) {
+      purrr::walk(copy_attrs, function(an) attr(.chunk, an) <- orig_attrs[[an]])
+      .chunk
+    })
+
+    # handle `data` attribute specially: subset it by the same split values
+    if (!is.null(orig_attrs$data) && is.data.frame(orig_attrs$data)) {
+      orig_data <- orig_attrs$data
+      if (!all(split %in% names(orig_data))) {
+        cli_warn(c(
+          "Original `data` attribute does not contain required split variables.",
+          "i" = "Required: {.var {split}}",
+          "i" = "Available in `data`: {.var {names(orig_data)}}",
+          "i" = "Copying full `data` attribute to each chunk."
+        ))
+        chunks <- purrr::map(chunks, function(.chunk) {
+          attr(.chunk, "data") <- orig_data
+          .chunk
+        })
+      } else {
+        chunks <- purrr::map2(
+          chunks,
+          seq_len(vec_size(keys_df)),
+          function(.chunk, .i) {
+            key_row <- raw_keys[.i, , drop = FALSE]
+            attr(.chunk, "data") <- dplyr::semi_join(
+              orig_data,
+              key_row,
+              by = split
+            )
+            .chunk
+          }
+        )
+      }
+    }
+
+    chunks
+  })
+  unlist(out, recursive = FALSE)
+}

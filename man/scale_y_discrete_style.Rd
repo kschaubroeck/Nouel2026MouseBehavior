@@ -2,20 +2,22 @@
 % Please edit documentation in R/style.R
 \name{scale_y_discrete_style}
 \alias{scale_y_discrete_style}
-\title{Apply discrete y-axis scale from a style theme}
+\title{Apply discrete y-axis scale from a style}
 \usage{
-scale_y_discrete_style(theme, keys, ...)
+scale_y_discrete_style(x, keys, ..., .verbose = TRUE)
 }
 \arguments{
-\item{theme}{A styles object}
+\item{x}{A styles object}
 
 \item{keys}{Factor names to match and sort by}
 
 \item{...}{Additional arguments passed to \code{ggplot2::scale_y_discrete()}}
+
+\item{.verbose}{Logical indicating whether to print warnings if no style is found}
 }
 \value{
 A ggplot2 scale object
 }
 \description{
-Apply discrete y-axis scale from a style theme
+Apply discrete y-axis scale from a style
 }

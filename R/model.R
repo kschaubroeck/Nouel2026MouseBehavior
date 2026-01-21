@@ -17,12 +17,34 @@ responses <- function(...) {
     .ignore_null = "all"
   )
   assert("At least one response must be provided.", length(dots) > 0L)
-  # no duplicate names allowed:
   assert(
     "All responses in `...` must have unique names.",
     !vctrs::vec_duplicate_any(names(dots))
   )
   dots
+}
+
+
+#' Create Response Variable Expressions from Character Names
+#'
+#' Convert a character vector of response variable names to a named list of
+#' unevaluated expressions suitable for use in model formulas. This is a
+#' convenience wrapper around `responses()` that accepts character input.
+#'
+#' @param x A character vector of response variable names. Must have at least
+#'   one element.
+#'
+#' @return A named list of unevaluated expressions (calls or symbols) where
+#'   each element corresponds to an element of `x`.
+
+#' @export
+responses_chr <- function(x) {
+  assert(
+    "{.arg x} must be a character vector with at least one element.",
+    is_character(x),
+    length(x) > 0L
+  )
+  responses(!!!map(x, sym))
 }
 
 #' Create Model Formulas from Response Variables

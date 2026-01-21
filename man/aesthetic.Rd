@@ -7,9 +7,9 @@
 aesthetic(
   ...,
   shape = NA_integer_,
-  color = NULL,
-  colour = NULL,
-  fill = color,
+  color = NA_character_,
+  colour = NA_character_,
+  fill = colour,
   linewidth = NA_real_,
   linetype = NA_character_,
   label = NA_character_

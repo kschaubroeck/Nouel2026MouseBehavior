@@ -17,7 +17,7 @@ map_plots(.x, .f, ..., .writer, .extra = NULL, .data = NULL)
 
 \item{.extra}{Optional list of quosures to add to each plot (e.g., additional layers)}
 
-\item{.data}{Optional data frame to use when evaluating .extra quosures}
+\item{.data}{Optional data frame to use within the extra quosures}
 }
 \value{
 Invisibly returns the generated plots

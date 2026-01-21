@@ -14,8 +14,7 @@ compare_by(
   .adjust = c("mvt", "bonferroni", "sidak", "none"),
   .weights = c("proportional", "cell", "equal"),
   .level = 0.95,
-  .seed = 1234,
-  .vcov = NULL
+  .seed = 1234
 )
 }
 \arguments{
@@ -40,9 +39,6 @@ multivariate t), "bonferroni", "sidak", or "none".}
 \item{.level}{Confidence level for intervals (default: 0.95).}
 
 \item{.seed}{Random seed for reproducibility (default: 1234).}
-
-\item{.vcov}{Optional variance-covariance specification created by \code{robust()}.
-If NULL, uses model's default vcov.}
 }
 \value{
 A named list with the same names as \code{.results}, where each element is

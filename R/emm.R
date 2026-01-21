@@ -1,142 +1,3 @@
-VALID_METHODS <- c("HC0", "HC1", "HC2", "HC3", "HC4", "HC4m", "HC5", "CR2")
-
-prop_cluster <- new_property(
-  class_character | NULL,
-  validator = function(value) {
-    if (!is_null(value) && !is_string(value)) "must be a string or NULL"
-  }
-)
-
-prop_method <- new_property(
-  class_character | NULL,
-  validator = function(value) {
-    if (!is_null(value) && !value %in% VALID_METHODS) {
-      sprintf(
-        "method must be one of %s or NULL, not %s",
-        paste(VALID_METHODS, collapse = ", "),
-        value
-      )
-    }
-  },
-  getter = function(self) self@method %||% "HC3",
-  setter = function(self, value) {
-    if (is_null(value)) {
-      self@method <- NULL
-    } else {
-      self@method <- arg_match0(value, VALID_METHODS)
-    }
-    self
-  }
-)
-
-class_vcov_spec <- new_class(
-  "VcovSpec",
-  properties = list(cluster = prop_cluster, method = prop_method),
-  validator = function(self) {
-    if (is_null(self@cluster)) {
-      if (is_null(self@method)) {
-        "at least one of @cluster or @method must be provided"
-      } else if (self@method == "CR2") {
-        "@cluster must be provided when @method is 'CR2'"
-      }
-    } else {
-      if (!is_null(self@method) && self@method != "CR2") {
-        "@method must be 'CR2' when @cluster is provided"
-      }
-    }
-  }
-)
-
-#' Robust Variance-Covariance Specification
-#'
-#' Create a specification for robust variance-covariance matrix estimation.
-#' Supports heteroscedasticity-consistent (HC) and cluster-robust (CR2) methods.
-#'
-#' @param ... Must be empty. Exists to force named arguments.
-#' @param cluster Optional cluster variable name (string or symbol) for cluster-robust
-#'   standard errors. When provided, automatically uses CR2 method.
-#' @param method Optional heteroscedasticity-consistent method. Must be one of:
-#'   "HC0", "HC1", "HC2", "HC3" (default), "HC4", "HC4m", or "HC5".
-#'   Cannot be specified when `cluster` is provided.
-#' @param .call Internal use only. The calling environment for error reporting.
-#'
-#' @return A `VcovSpec` S7 object containing the variance-covariance specification.
-#'
-#' @export
-robust <- function(..., cluster = NULL, method = NULL, .call = caller_env()) {
-  check_dots_empty0(...)
-
-  if (!is_null(method)) {
-    method <- arg_match0(
-      method,
-      c("HC0", "HC1", "HC2", "HC3", "HC4", "HC4m", "HC5"),
-      error_call = .call
-    )
-  }
-
-  cluster <- enquo(cluster)
-  if (quo_is_null(cluster)) {
-    cluster <- NULL
-  } else if (quo_is_symbol(cluster)) {
-    cluster <- as_string(quo_get_expr(cluster))
-  } else {
-    expr <- quo_get_expr(cluster)
-    if (is_string(expr)) {
-      cluster <- expr
-    } else {
-      cli_abort("{.arg {arg}} must be a string, symbol, or NULL.", call = .call)
-    }
-  }
-
-  if (!is_null(cluster) && !is_null(method)) {
-    cli_abort(
-      "`method` cannot be specified when `cluster` is provided.",
-      call = .call
-    )
-  }
-
-  if (!is_null(cluster)) {
-    method <- "CR2"
-  }
-
-  class_vcov_spec(cluster = cluster, method = method)
-}
-
-method(convert, list(class_vcov_spec, class_double)) <-
-  function(from, to, fit, data, use_lmer, call = caller_env()) {
-    if (use_lmer) {
-      if (!is_string(from@method, "CR2")) {
-        cli_abort("Only 'CR2' is supported for lmer models.", call = call)
-      }
-      if (!from@cluster %in% colnames(data)) {
-        cli_abort(
-          "Cluster variable {.val {from@cluster}} not found in data.",
-          call = call
-        )
-      }
-      return(clubSandwich::vcovCR(
-        fit,
-        cluster = data[[from@cluster]],
-        type = from@method
-      ))
-    }
-
-    sandwich::vcovHC(fit, type = from@method)
-  }
-
-get_vcov <- function(fit, spec, data, call = caller_env()) {
-  if (is_null(spec)) {
-    stats::vcov(fit)
-  } else if (S7_inherits(spec, class_vcov_spec)) {
-    convert(spec, class_double, fit, data, is_lmer(fit), call = call)
-  } else {
-    cli_abort(
-      "`spec` must be NULL or a {.cls {class_vcov_spec}} object.",
-      call = call
-    )
-  }
-}
-
 # Estimate Functions -----------------------------------------------------------
 
 #' Estimate Marginal Means
@@ -154,8 +15,6 @@ get_vcov <- function(fit, spec, data, call = caller_env()) {
 #'   "cell", or "equal".
 #' @param .level Confidence level for intervals (default: 0.95).
 #' @param .seed Random seed for reproducibility (default: 1234).
-#' @param .vcov Optional variance-covariance specification created by `robust()`.
-#'   If NULL, uses model's default vcov.
 #'
 #' @return A named list with the same names as `.results`, where each element is
 #'   a tibble containing unadjusted means, adjusted means, and confidence intervals,
@@ -169,8 +28,7 @@ emms <- function(
   .scale = c("response", "link"),
   .weights = c("proportional", "cell", "equal"),
   .level = 0.95,
-  .seed = 1234,
-  .vcov = NULL
+  .seed = 1234
 ) {
   check_dots_empty0(...)
   .scale <- arg_match0(.scale, c("response", "link"))
@@ -194,11 +52,6 @@ emms <- function(
     .level < 1
   )
 
-  assert(
-    "`.vcov` must be NULL or a {.cls {class_vcov_spec}} object.",
-    S7_inherits(.vcov, class_vcov_spec) || is_null(.vcov)
-  )
-
   quo_covariates <- enquo(.covariates)
   assert(
     "`.covariates` must be provided.",
@@ -207,13 +60,16 @@ emms <- function(
 
   imap(.results, function(fit, nm) {
     df <- as_tibble(stats::model.frame(fit))
+    frmla <- stats::formula(fit)
 
     vars <- select_model_vars(quo_covariates, df, ".covariates", nm)
     if (is_null(vars)) {
       return(NULL)
     }
 
-    lhs <- sym(paste(deparse(f_lhs(stats::formula(fit))), collapse = ""))
+    # model.frame puts the entire expression as the column name, transforms
+    # and all.
+    lhs <- sym(paste(deparse(f_lhs(frmla)), collapse = ""))
     raw <- dplyr::summarize(
       df,
       unadjusted = mean(!!lhs, na.rm = TRUE),
@@ -222,7 +78,7 @@ emms <- function(
 
     # One limitation I can deal with later: theunadjusted mean is not
     if (.scale == "response") {
-      fn <- make_inverse_transform(f_lhs(stats::formula(fit)))
+      fn <- make_inverse_transform(f_lhs(frmla))
       if (!is_null(fn)) {
         raw <- raw |> dplyr::mutate(unadjusted = fn(unadjusted))
       } else {
@@ -245,12 +101,14 @@ emms <- function(
         fit = fit,
         covariates = vars,
         weights = .weights,
-        vcov_mtx = get_vcov(fit, .vcov, df, call = caller_env())
+        vcov_mtx = stats::vcov(fit)
       ) |>
         confint(level = .level, type = .scale) |>
         as.data.frame() |>
         as_tibble() |>
+        dplyr::mutate(measure = as_string(lhs)) |>
         dplyr::select(
+          measure,
           dplyr::all_of(vars),
           adjusted = dplyr::any_of(c("emmean", "response")),
           ci_lower = lower.CL,
@@ -268,8 +126,11 @@ emms <- function(
       return(NULL)
     }
 
-    out <- dplyr::left_join(raw, adjusted, by = vars)
-    attr(out, "model_formula") <- stats::formula(fit)
+    out <- dplyr::left_join(raw, adjusted, by = vars) |>
+      dplyr::relocate(measure)
+
+    attr(out, "model_formula") <- frmla
+    attr(out, "data") <- df
     out
   })
 }
@@ -290,8 +151,6 @@ emms <- function(
 #'   "cell", or "equal".
 #' @param .level Confidence level for intervals (default: 0.95).
 #' @param .seed Random seed for reproducibility (default: 1234).
-#' @param .vcov Optional variance-covariance specification created by `robust()`.
-#'   If NULL, uses model's default vcov.
 #'
 #' @return A named list with the same names as `.results`, where each element is
 #'   a tibble containing pairwise comparisons with estimates, confidence intervals,
@@ -307,8 +166,7 @@ compare <- function(
   .adjust = c("mvt", "bonferroni", "sidak", "none"),
   .weights = c("proportional", "cell", "equal"),
   .level = 0.95,
-  .seed = 1234,
-  .vcov = NULL
+  .seed = 1234
 ) {
   check_dots_empty0(...)
 
@@ -334,11 +192,6 @@ compare <- function(
     .level < 1
   )
 
-  assert(
-    "`.vcov` must be NULL or a {.cls {class_vcov_spec}} object.",
-    S7_inherits(.vcov, class_vcov_spec) || is_null(.vcov)
-  )
-
   quo_covariates <- enquo(.covariates)
   quo_compare <- enquo(.compare)
 
@@ -354,6 +207,8 @@ compare <- function(
 
   imap(.results, function(fit, nm) {
     df <- as_tibble(stats::model.frame(fit))
+    frmla <- stats::formula(fit)
+    lhs <- sym(paste(deparse(f_lhs(frmla)), collapse = ""))
 
     covariates <- select_model_vars(quo_covariates, df, ".covariates", nm)
     compare <- select_model_vars(quo_compare, df, ".compare", nm)
@@ -367,7 +222,7 @@ compare <- function(
         fit = fit,
         covariates = unique(c(covariates, compare)),
         weights = .weights,
-        vcov_mtx = get_vcov(fit, .vcov, df, call = caller_env())
+        vcov_mtx = stats::vcov(fit)
       ),
       error = function(e) {
         cli_warn(
@@ -391,9 +246,11 @@ compare <- function(
     out <- join_emm_tables(prs, interval, test) |>
       dplyr::mutate(hypothesis = factor(contrast)) |>
       dplyr::select(-contrast) |>
-      dplyr::relocate(hypothesis)
+      mutate(measure = as_string(lhs)) |>
+      dplyr::relocate(measure, hypothesis)
 
-    attr(out, "model_formula") <- stats::formula(fit)
+    attr(out, "model_formula") <- frmla
+    attr(out, "data") <- df
     out
   })
 }
@@ -415,8 +272,6 @@ compare <- function(
 #'   "cell", or "equal".
 #' @param .level Confidence level for intervals (default: 0.95).
 #' @param .seed Random seed for reproducibility (default: 1234).
-#' @param .vcov Optional variance-covariance specification created by `robust()`.
-#'   If NULL, uses model's default vcov.
 #'
 #' @return A named list with the same names as `.results`, where each element is
 #'   a tibble containing conditional comparisons with estimates, confidence intervals,
@@ -433,8 +288,7 @@ compare_by <- function(
   .adjust = c("mvt", "bonferroni", "sidak", "none"),
   .weights = c("proportional", "cell", "equal"),
   .level = 0.95,
-  .seed = 1234,
-  .vcov = NULL
+  .seed = 1234
 ) {
   check_dots_empty0(...)
 
@@ -460,11 +314,6 @@ compare_by <- function(
     .level < 1
   )
 
-  assert(
-    "`.vcov` must be NULL or a {.cls {class_vcov_spec}} object.",
-    S7_inherits(.vcov, class_vcov_spec) || is_null(.vcov)
-  )
-
   quo_covariates <- enquo(.covariates)
   quo_compare <- enquo(.compare)
   quo_conditioned <- enquo(.conditioned)
@@ -486,6 +335,8 @@ compare_by <- function(
 
   imap(.results, function(fit, nm) {
     df <- as_tibble(stats::model.frame(fit))
+    frmla <- stats::formula(fit)
+    lhs <- sym(paste(deparse(f_lhs(frmla)), collapse = ""))
 
     covariates <- select_model_vars(quo_covariates, df, ".covariates", nm)
     compare <- select_model_vars(quo_compare, df, ".compare", nm)
@@ -500,7 +351,7 @@ compare_by <- function(
         fit = fit,
         covariates = unique(c(covariates, conditioned, compare)),
         weights = .weights,
-        vcov_mtx = get_vcov(fit, .vcov, df, call = caller_env())
+        vcov_mtx = stats::vcov(fit)
       ),
       error = function(e) {
         cli_warn(
@@ -534,9 +385,11 @@ compare_by <- function(
       ) |>
       dplyr::mutate(hypothesis = factor(hypothesis)) |>
       dplyr::select(-a, -symbol, -b, -contrast) |>
-      dplyr::relocate(hypothesis)
+      dplyr::mutate(measure = as_string(lhs)) |>
+      dplyr::relocate(measure, hypothesis)
 
-    attr(out, "model_formula") <- stats::formula(fit)
+    attr(out, "model_formula") <- frmla
+    attr(out, "data") <- df
     out
   })
 }

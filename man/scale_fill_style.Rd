@@ -2,20 +2,22 @@
 % Please edit documentation in R/style.R
 \name{scale_fill_style}
 \alias{scale_fill_style}
-\title{Apply fill scale from a style theme}
+\title{Apply fill scale from a style}
 \usage{
-scale_fill_style(theme, keys, ...)
+scale_fill_style(x, keys, ..., .verbose = TRUE)
 }
 \arguments{
-\item{theme}{A styles object}
+\item{x}{A styles object}
 
 \item{keys}{Factor names to match and sort by}
 
 \item{...}{Additional arguments passed to \code{ggplot2::scale_fill_manual()}}
+
+\item{.verbose}{Logical indicating whether to print warnings if no style is found}
 }
 \value{
 A ggplot2 scale object
 }
 \description{
-Apply fill scale from a style theme
+Apply fill scale from a style
 }

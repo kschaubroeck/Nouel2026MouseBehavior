@@ -65,8 +65,12 @@ sym_names <- function(
     )
   )
 
-  if (!allow_null && is_null(out)) {
-    cli_abort("{.arg {error_arg}} must not be NULL.", call = error_call)
+  # early return if no spec to validate against
+  if (is_null(out)) {
+    if (!allow_null) {
+      cli_abort("{.arg {error_arg}} must not be NULL.", call = error_call)
+    }
+    return(out)
   }
 
   # Duplicate handling
@@ -122,9 +126,24 @@ make_inverse_transform <- function(expr) {
 }
 
 attr_or <- function(x, which, default = NULL) {
-  out <- attr(x, which)
+  out <- attr(x, which, exact = TRUE)
   if (is_null(out)) {
     return(default)
   }
   out
+}
+
+as_interaction <- function(x, sep = ":") {
+  assert(
+    "`.x` must be a character vector of length >= 1 with no missing values.",
+    is_character(x),
+    length(x) >= 1L,
+    !anyNA(x)
+  )
+  assert("`.sep` must be a single string.", is_string(sep))
+  if (length(x) == 1L) {
+    return(sym(x))
+  }
+  map(x, sym) |>
+    purrr::reduce(function(.x, .y) call2(":", .x, .y))
 }

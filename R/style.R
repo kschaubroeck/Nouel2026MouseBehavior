@@ -206,16 +206,22 @@ aesthetic <- new_class(
   constructor = function(
     ...,
     shape = NA_integer_,
-    color = NULL,
-    colour = NULL,
-    fill = color,
+    color = NA_character_,
+    colour = NA_character_,
+    fill = colour,
     linewidth = NA_real_,
     linetype = NA_character_,
     label = NA_character_
   ) {
     check_dots_empty0(...)
-    if (!is.null(colour)) {
+    if (!is.na(colour)) {
       color <- colour
+    }
+    if (is.na(fill)) {
+      if (!is.na(color)) {
+        # pick color since it is overwritten by colour so it is the master
+        fill <- color
+      }
     }
     new_object(
       S7_object(),
@@ -461,7 +467,7 @@ find_style <- function(x, by) {
   by_quo <- enquo(by)
   match <- purrr::detect(x, function(s) is_style(s, !!by_quo))
   if (is_null(match)) {
-    cli_abort("No style found matching the specified factors.")
+    return(NULL)
   }
   match
 }
@@ -469,17 +475,32 @@ find_style <- function(x, by) {
 # Theme scale functions -------------------------------------------------------
 
 make_scale <- function(prop, target_class, scale_fn) {
-  function(x, keys, ...) {
+  function(x, keys, ..., .verbose = TRUE) {
     assert(
       "`x` must be a {.cls class(class_styles)} object.",
       is_styles(x)
     )
     keys_quo <- enquo(keys)
     p <- find_style(x@values, !!keys_quo)
+    if (is_null(p)) {
+      if (.verbose) {
+        cli_warn("No style found matching the specified factors.")
+      }
+      return(list())
+    }
     if (!quo_is_null(keys_quo)) {
       p <- sort(p, by = !!keys_quo)
     }
     values <- convert(p, target_class, prop = prop)
+    if (anyNA(values)) {
+      # not all NA is likely a bug
+      if (!all(is.na(values))) {
+        cli_warn(
+          "Some values for the `{prop}` property are invalid and will be set to NA."
+        )
+      }
+      values <- ggplot2::waiver()
+    }
     scale_fn(
       values = values,
       breaks = names(p),
@@ -490,13 +511,19 @@ make_scale <- function(prop, target_class, scale_fn) {
 }
 
 make_axis_scale <- function(scale_fn) {
-  function(x, keys, ...) {
+  function(x, keys, ..., .verbose = TRUE) {
     assert(
       "`x` must be a {.cls class(class_styles)} object.",
       is_styles(x)
     )
     keys_quo <- enquo(keys)
     p <- find_style(x@values, !!keys_quo)
+    if (is_null(p)) {
+      if (.verbose) {
+        cli_warn("No style found matching the specified factors.")
+      }
+      return(list())
+    }
     if (!quo_is_null(keys_quo)) {
       p <- sort(p, by = !!keys_quo)
     }
@@ -504,76 +531,130 @@ make_axis_scale <- function(scale_fn) {
   }
 }
 
-#' Apply color scale from a style theme
+#' Apply color scale from a style
 #'
-#' @param theme A styles object
+#' @param x A styles object
 #' @param keys Factor names to match and sort by
 #' @param ... Additional arguments passed to `ggplot2::scale_color_manual()`
+#' @param .verbose Logical indicating whether to print warnings if no style is found
 #'
 #' @return A ggplot2 scale object
 #' @export
 scale_color_style <-
   make_scale("color", class_character, ggplot2::scale_color_manual)
 
-#' Apply colour scale from a style theme
+#' Apply colour scale from a style
 #'
-#' @param theme A styles object
+#' @param x A styles object
 #' @param keys Factor names to match and sort by
 #' @param ... Additional arguments passed to `ggplot2::scale_color_manual()`
+#' @param .verbose Logical indicating whether to print warnings if no style is found
 #'
 #' @return A ggplot2 scale object
 #' @export
 scale_colour_style <- scale_color_style
 
-#' Apply fill scale from a style theme
+#' Apply fill scale from a style
 #'
-#' @param theme A styles object
+#' @param x A styles object
 #' @param keys Factor names to match and sort by
 #' @param ... Additional arguments passed to `ggplot2::scale_fill_manual()`
+#' @param .verbose Logical indicating whether to print warnings if no style is found
 #'
 #' @return A ggplot2 scale object
 #' @export
 scale_fill_style <-
   make_scale("fill", class_character, ggplot2::scale_fill_manual)
 
-#' Apply shape scale from a style theme
+#' Apply shape scale from a style
 #'
-#' @param theme A styles object
+#' @param x A styles object
 #' @param keys Factor names to match and sort by
 #' @param ... Additional arguments passed to `ggplot2::scale_shape_manual()`
+#' @param .verbose Logical indicating whether to print warnings if no style is found
 #'
 #' @return A ggplot2 scale object
 #' @export
 scale_shape_style <-
   make_scale("shape", class_integer, ggplot2::scale_shape_manual)
 
-#' Apply linetype scale from a style theme
+#' Apply linetype scale from a style
 #'
-#' @param theme A styles object
+#' @param x A styles object
 #' @param keys Factor names to match and sort by
 #' @param ... Additional arguments passed to `ggplot2::scale_linetype_manual()`
+#' @param .verbose Logical indicating whether to print warnings if no style is found
 #'
 #' @return A ggplot2 scale object
 #' @export
 scale_linetype_style <-
   make_scale("linetype", class_character, ggplot2::scale_linetype_manual)
 
-#' Apply discrete x-axis scale from a style theme
+#' Apply discrete x-axis scale from a style
 #'
-#' @param theme A styles object
+#' @param x A styles object
 #' @param keys Factor names to match and sort by
 #' @param ... Additional arguments passed to `ggplot2::scale_x_discrete()`
+#' @param .verbose Logical indicating whether to print warnings if no style is found
 #'
 #' @return A ggplot2 scale object
 #' @export
 scale_x_discrete_style <- make_axis_scale(ggplot2::scale_x_discrete)
 
-#' Apply discrete y-axis scale from a style theme
+#' Apply discrete y-axis scale from a style
 #'
-#' @param theme A styles object
+#' @param x A styles object
 #' @param keys Factor names to match and sort by
 #' @param ... Additional arguments passed to `ggplot2::scale_y_discrete()`
+#' @param .verbose Logical indicating whether to print warnings if no style is found
 #'
 #' @return A ggplot2 scale object
 #' @export
 scale_y_discrete_style <- make_axis_scale(ggplot2::scale_y_discrete)
+
+#' Apply all scales from a style
+#'
+#' Create and return a list of ggplot2 scales (color, fill, shape, linetype,
+#' and optionally discrete x/y axis scales) derived from a `Styles` object.
+#'
+#' @param x A styles object
+#' @param keys Factor names to match and sort by
+#' @param ... Additional arguments passed to the underlying ggplot2 scale functions
+#' @param .discrete_x If TRUE, include a discrete x-axis scale
+#' @param .discrete_y If TRUE, include a discrete y-axis scale
+#'
+#' @return A list of ggplot2 scale objects. Returns an empty list if no matching style found.
+#' @export
+scale_all_style <- function(
+  x,
+  keys,
+  ...,
+  .discrete_x = NULL,
+  .discrete_y = NULL
+) {
+  assert(
+    "`x` must be a {.cls class(class_styles)} object.",
+    is_styles(x)
+  )
+  keys_quo <- enquo(keys)
+  p <- find_style(x@values, !!keys_quo)
+  if (is_null(p)) {
+    return(list())
+  }
+  if (!quo_is_null(keys_quo)) {
+    p <- sort(p, by = !!keys_quo)
+  }
+  lst <- list(
+    scale_color_style(x, !!keys_quo, ..., .verbose = FALSE),
+    scale_fill_style(x, !!keys_quo, ..., .verbose = FALSE),
+    scale_shape_style(x, !!keys_quo, ..., .verbose = FALSE),
+    scale_linetype_style(x, !!keys_quo, ..., .verbose = FALSE),
+    if (is_true(.discrete_x)) {
+      scale_x_discrete_style(x, !!keys_quo, ..., .verbose = FALSE)
+    },
+    if (is_true(.discrete_y)) {
+      scale_y_discrete_style(x, !!keys_quo, ..., .verbose = FALSE)
+    }
+  )
+  purrr::compact(lst)
+}
