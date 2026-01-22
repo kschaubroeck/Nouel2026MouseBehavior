@@ -414,14 +414,39 @@ plot_analysis <- function(
       response_var <- nm
     }
 
+    # Default
+    y_min <- 0
+
+    # Check and see if eitehr confidence interval goes below zero to
+    if (any(c("ci_lower", "ci_upper") %in% names(data))) {
+      ci_cols <- intersect(c("ci_lower", "ci_upper"), names(data))
+      if (any(data[ci_cols] < 0, na.rm = TRUE)) {
+        y_min <- NA # let ggplot do the work
+      }
+    }
+
+    # compute limits with existing data
+    # This next segment could be wrapped in a check for y_min is na
+    # but since it only ever sets y_min to NA if needed, it's fine as is.
+    df <- attr_or(data, "data", default = NULL)
+    if (!is_null(df) && response_var %in% names(df) && is_true(.with_data)) {
+      resp_vals <- df[[response_var]]
+      if (min(resp_vals, na.rm = TRUE) < 0) {
+        y_min <- NA # let ggplot do the work
+      }
+    }
+
     p <- ggplot2::ggplot(
       data,
       ggplot2::aes(x = !!x_val, y = adjusted, color = !!x_val)
-    ) +
-      ggplot2::coord_cartesian(ylim = c(0, NA))
+    )
+
+    if (!is.na(y_min)) {
+      p <- p + ggplot2::coord_cartesian(ylim = c(y_min, NA))
+    }
 
     if (is_true(.with_data)) {
-      df <- attr_or(data, "data", default = NULL)
+      # df <- attr_or(data, "data", default = NULL)
       frmla <- attr_or(data, "model_formula", default = NULL)
       if (!is_null(df) && !is_null(frmla)) {
         lhs <- sym(paste(deparse(f_lhs(frmla)), collapse = ""))
@@ -458,15 +483,19 @@ plot_analysis <- function(
     if (!is_null(.styles)) {
       p <- p +
         scale_color_style(.styles, keys = {{ .covariates }}) +
-        scale_fill_style(.styles, keys = {{ .covariates }}) +
         scale_x_discrete_style(.styles, keys = {{ .covariates }})
+
+      if (is_true(.with_data)) {
+        p <- p +
+          scale_fill_style(.styles, keys = {{ .covariates }})
+      }
     }
 
     if (!is_null(.layout)) {
       p <- p + as_facet_layer(.layout)
     }
 
-    p +
+    p <- p +
       ggplot2::theme_minimal(base_size = 13) +
       ggplot2::theme(
         panel.grid.major.x = ggplot2::element_blank(),
@@ -474,6 +503,8 @@ plot_analysis <- function(
         legend.position = "none"
       ) +
       ggplot2::labs(y = response_var, x = "Groups")
+
+    p
   }
 
   # little wrapper for seeds
@@ -525,7 +556,9 @@ split_results <- function(.results, split) {
     # copy non-row metadata (except names/row.names) to each chunk
     copy_attrs <- setdiff(names(orig_attrs), c("names", "row.names", "data"))
     chunks <- purrr::map(chunks, function(.chunk) {
-      purrr::walk(copy_attrs, function(an) attr(.chunk, an) <- orig_attrs[[an]])
+      for (an in copy_attrs) {
+        attr(.chunk, an) <- orig_attrs[[an]]
+      }
       .chunk
     })
 
