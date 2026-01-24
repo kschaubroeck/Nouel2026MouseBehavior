@@ -407,31 +407,37 @@ plot_analysis <- function(
       return(NULL)
     }
 
+    # Default
+    y_min <- 0
+
+    # Check and see if eitehr confidence interval goes below zero to
+    if ("ci_lower" %in% names(data)) {
+      if (any(data[["ci_lower"]] < 0, na.rm = TRUE)) {
+        y_min <- NA # let ggplot do the work
+      }
+    }
+
+    if ("ci_upper" %in% names(data)) {
+      if (any(data[["ci_upper"]] < 0, na.rm = TRUE)) {
+        y_min <- NA # let ggplot do the work
+      }
+    }
+
+    # get response variable name from formula attribute if available
     frmla <- attr_or(data, "model_formula", default = NULL)
+    df <- attr_or(data, "data", default = NULL)
+
     if (!is_null(frmla)) {
       response_var <- paste(deparse(f_lhs(frmla)), collapse = "")
     } else {
       response_var <- nm
     }
 
-    # Default
-    y_min <- 0
-
-    # Check and see if eitehr confidence interval goes below zero to
-    if (any(c("ci_lower", "ci_upper") %in% names(data))) {
-      ci_cols <- intersect(c("ci_lower", "ci_upper"), names(data))
-      if (any(data[ci_cols] < 0, na.rm = TRUE)) {
-        y_min <- NA # let ggplot do the work
-      }
-    }
-
     # compute limits with existing data
     # This next segment could be wrapped in a check for y_min is na
     # but since it only ever sets y_min to NA if needed, it's fine as is.
-    df <- attr_or(data, "data", default = NULL)
     if (!is_null(df) && response_var %in% names(df) && is_true(.with_data)) {
-      resp_vals <- df[[response_var]]
-      if (min(resp_vals, na.rm = TRUE) < 0) {
+      if (min(df[[response_var]], na.rm = TRUE) < 0) {
         y_min <- NA # let ggplot do the work
       }
     }
@@ -441,13 +447,7 @@ plot_analysis <- function(
       ggplot2::aes(x = !!x_val, y = adjusted, color = !!x_val)
     )
 
-    if (!is.na(y_min)) {
-      p <- p + ggplot2::coord_cartesian(ylim = c(y_min, NA))
-    }
-
     if (is_true(.with_data)) {
-      # df <- attr_or(data, "data", default = NULL)
-      frmla <- attr_or(data, "model_formula", default = NULL)
       if (!is_null(df) && !is_null(frmla)) {
         lhs <- sym(paste(deparse(f_lhs(frmla)), collapse = ""))
         p <- p +
@@ -493,6 +493,10 @@ plot_analysis <- function(
 
     if (!is_null(.layout)) {
       p <- p + as_facet_layer(.layout)
+    }
+
+    if (!is.na(y_min)) {
+      p <- p + ggplot2::coord_cartesian(ylim = c(y_min, NA_real_))
     }
 
     p <- p +
