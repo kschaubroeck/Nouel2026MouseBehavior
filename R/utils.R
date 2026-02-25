@@ -1,4 +1,23 @@
-is_lmer <- function(x) inherits_any(x, c("lmerMod", "lmerModLmerTest"))
+# is_lmer <- function(x) inherits_any(x, c("lmerMod", "lmerModLmerTest"))
+
+is_glmmTMB <- function(x) inherits(x, "glmmTMB")
+is_merMod <- function(x) inherits(x, "merMod")
+is_glm <- function(x) inherits(x, "glm")
+is_lm <- function(x) inherits(x, "lm")
+
+model_type <- function(x) {
+  if (is_glmmTMB(x)) {
+    "glmmTMB"
+  } else if (is_merMod(x)) {
+    "merMod"
+  } else if (is_glm(x)) {
+    "glm"
+  } else if (is_lm(x)) {
+    "lm"
+  } else {
+    NA_character_
+  }
+}
 
 does_error <- function(expr) {
   tryCatch(
@@ -148,4 +167,4 @@ as_interaction <- function(x, sep = ":") {
     purrr::reduce(function(.x, .y) call2(":", .x, .y))
 }
 
-is_glmmTMB <- function(x) inherits(x, "glmmTMB")
+# is_glmmTMB <- function(x) inherits(x, "glmmTMB")

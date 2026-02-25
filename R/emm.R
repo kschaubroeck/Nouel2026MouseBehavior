@@ -517,7 +517,7 @@ emm_estimate <- function(
     object = fit,
     specs = f,
     weights = weight_by %||% weights,
-    lmer.df = if (is_lmer(fit)) "satterthwaite",
+    lmer.df = if (is_merMod(fit)) "satterthwaite",
     component = if (is_glmmTMB(fit)) component
   )
   exec(emmeans::emmeans, !!!purrr::compact(args))

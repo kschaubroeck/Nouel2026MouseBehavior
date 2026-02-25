@@ -15,10 +15,12 @@ Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.3
 Imports:
     cli,
+    DHARMa,
     dplyr,
     emmeans,
     fs,
     ggplot2,
+    glmmTMB,
     glue,
     graphics,
     purrr,
