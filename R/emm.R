@@ -138,7 +138,7 @@ emms <- function(
         dplyr::select(
           measure,
           dplyr::all_of(vars),
-          adjusted = dplyr::any_of(c("emmean", "response")),
+          adjusted = dplyr::any_of(c("emmean", "response", "rate")),
           ci_lower = dplyr::any_of(c("lower.CL", "asymp.LCL")),
           ci_upper = dplyr::any_of(c("upper.CL", "asymp.UCL"))
         ),
