@@ -147,3 +147,5 @@ as_interaction <- function(x, sep = ":") {
   map(x, sym) |>
     purrr::reduce(function(.x, .y) call2(":", .x, .y))
 }
+
+is_glmmTMB <- function(x) inherits(x, "glmmTMB")

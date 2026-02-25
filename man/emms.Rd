@@ -9,7 +9,9 @@ emms(
   .covariates,
   ...,
   .scale = c("response", "link"),
-  .weights = c("cell", "proportional", "flat", "equal"),
+  .weights = c("cell", "proportional", "flat", "equal", "variable"),
+  .weights_var = NULL,
+  .component = c("conditional", "zi", "disp", "response"),
   .level = 0.95,
   .seed = 1234
 )
@@ -27,6 +29,14 @@ the original response scale, or "link" for the link function scale.}
 
 \item{.weights}{Method for weighting cells. One of "proportional" (default),
 "cell", or "equal".}
+
+\item{.weights_var}{Optional tidyselect specification of factors to weight by when
+using "variable" weights. If NULL (default), weights are computed based on
+all covariates.}
+
+\item{.component}{For models with multiple components (e.g., zero-inflated models),
+which component to estimate means for. One of "conditional" (default),
+"zi" (zero-inflation), "disp" (dispersion), or "response" (overall response).}
 
 \item{.level}{Confidence level for intervals (default: 0.95).}
 

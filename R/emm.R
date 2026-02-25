@@ -13,6 +13,12 @@
 #'   the original response scale, or "link" for the link function scale.
 #' @param .weights Method for weighting cells. One of "proportional" (default),
 #'   "cell", or "equal".
+#' @param .weights_var Optional tidyselect specification of factors to weight by when
+#'   using "variable" weights. If NULL (default), weights are computed based on
+#'   all covariates.
+#' @param .component For models with multiple components (e.g., zero-inflated models),
+#'   which component to estimate means for. One of "conditional" (default),
+#'   "zi" (zero-inflation), "disp" (dispersion), or "response" (overall response).
 #' @param .level Confidence level for intervals (default: 0.95).
 #' @param .seed Random seed for reproducibility (default: 1234).
 #'
@@ -26,13 +32,25 @@ emms <- function(
   .covariates,
   ...,
   .scale = c("response", "link"),
-  .weights = c("cell", "proportional", "flat", "equal"),
+  .weights = c("cell", "proportional", "flat", "equal", "variable"),
+  .weights_var = NULL,
+  .component = c("conditional", "zi", "disp", "response"),
   .level = 0.95,
   .seed = 1234
 ) {
   check_dots_empty0(...)
   .scale <- arg_match0(.scale, c("response", "link"))
-  .weights <- arg_match0(.weights, c("cell", "proportional", "flat", "equal"))
+  .weights <- arg_match0(
+    .weights,
+    c("cell", "proportional", "flat", "equal", "variable")
+  )
+  .component <- arg_match0(
+    .component,
+    c("conditional", "zi", "disp", "response")
+  )
+  if (.component == "conditional") {
+    .component <- "cond"
+  }
 
   assert(
     "`.results` must be a named list.",
@@ -57,6 +75,14 @@ emms <- function(
     "`.covariates` must be provided.",
     !quo_is_null(quo_covariates) && !quo_is_missing(quo_covariates)
   )
+
+  # Get the weights
+  if (.weights == "variable") {
+    weight_by <- sym_names({{ .weights_var }})
+    .weights <- NULL
+  } else {
+    weight_by <- NULL
+  }
 
   imap(.results, function(fit, nm) {
     df <- as_tibble(stats::model.frame(fit))
@@ -101,7 +127,9 @@ emms <- function(
         fit = fit,
         covariates = vars,
         weights = .weights,
-        vcov_mtx = stats::vcov(fit)
+        # vcov_mtx = stats::vcov(fit),
+        component = .component,
+        weight_by = weight_by
       ) |>
         confint(level = .level, type = .scale) |>
         as.data.frame() |>
@@ -111,8 +139,8 @@ emms <- function(
           measure,
           dplyr::all_of(vars),
           adjusted = dplyr::any_of(c("emmean", "response")),
-          ci_lower = lower.CL,
-          ci_upper = upper.CL
+          ci_lower = dplyr::any_of(c("lower.CL", "asymp.LCL")),
+          ci_upper = dplyr::any_of(c("upper.CL", "asymp.UCL"))
         ),
       error = function(e) {
         cli_warn(
@@ -131,6 +159,11 @@ emms <- function(
 
     attr(out, "model_formula") <- frmla
     attr(out, "data") <- df
+
+    if (.component %in% c("zi", "disp")) {
+      out <- dplyr::select(out, -unadjusted)
+    }
+
     out
   })
 }
@@ -149,6 +182,12 @@ emms <- function(
 #'   multivariate t), "bonferroni", "sidak", or "none".
 #' @param .weights Method for weighting cells. One of "proportional" (default),
 #'   "cell", or "equal".
+#' @param .weights_var Optional tidyselect specification of factors to weight by when
+#'   using "variable" weights. If NULL (default), weights are computed based on
+#'   all covariates.
+#' @param .component For models with multiple components (e.g., zero-inflated models),
+#'   which component to estimate means for. One of "conditional" (default),
+#'   "zi" (zero-inflation), "disp" (dispersion), or "response" (overall response).
 #' @param .level Confidence level for intervals (default: 0.95).
 #' @param .seed Random seed for reproducibility (default: 1234).
 #'
@@ -164,7 +203,9 @@ compare <- function(
   ...,
   .scale = c("response", "link"),
   .adjust = c("mvt", "bonferroni", "sidak", "none"),
-  .weights = c("cell", "proportional", "flat", "equal"),
+  .weights = c("cell", "proportional", "flat", "equal", "variable"),
+  .weights_var = NULL,
+  .component = c("conditional", "zi", "disp", "response"),
   .level = 0.95,
   .seed = 1234
 ) {
@@ -172,7 +213,17 @@ compare <- function(
 
   .scale <- arg_match0(.scale, c("response", "link"))
   .adjust <- arg_match0(.adjust, c("mvt", "bonferroni", "sidak", "none"))
-  .weights <- arg_match0(.weights, c("cell", "proportional", "flat", "equal"))
+  .weights <- arg_match0(
+    .weights,
+    c("cell", "proportional", "flat", "equal", "variable")
+  )
+  .component <- arg_match0(
+    .component,
+    c("conditional", "zi", "disp", "response")
+  )
+  if (.component == "conditional") {
+    .component <- "cond"
+  }
 
   assert(
     "`.results` must be a named list.",
@@ -205,6 +256,14 @@ compare <- function(
     !quo_is_null(quo_compare) && !quo_is_missing(quo_compare)
   )
 
+  # Get the weights
+  if (.weights == "variable") {
+    weight_by <- sym_names({{ .weights_var }})
+    .weights <- NULL
+  } else {
+    weight_by <- NULL
+  }
+
   imap(.results, function(fit, nm) {
     df <- as_tibble(stats::model.frame(fit))
     frmla <- stats::formula(fit)
@@ -222,7 +281,9 @@ compare <- function(
         fit = fit,
         covariates = unique(c(covariates, compare)),
         weights = .weights,
-        vcov_mtx = stats::vcov(fit)
+        # vcov_mtx = stats::vcov(fit),
+        component = .component,
+        weight_by = weight_by
       ),
       error = function(e) {
         cli_warn(
@@ -270,6 +331,12 @@ compare <- function(
 #'   multivariate t), "bonferroni", "sidak", or "none".
 #' @param .weights Method for weighting cells. One of "proportional" (default),
 #'   "cell", or "equal".
+#' @param .weights_var Optional tidyselect specification of factors to weight by when
+#'   using "variable" weights. If NULL (default), weights are computed based on
+#'   all covariates.
+#' @param .component For models with multiple components (e.g., zero-inflated models),
+#'   which component to estimate means for. One of "conditional" (default),
+#'   "zi" (zero-inflation), "disp" (dispersion), or "response" (overall response).
 #' @param .level Confidence level for intervals (default: 0.95).
 #' @param .seed Random seed for reproducibility (default: 1234).
 #'
@@ -286,7 +353,9 @@ compare_by <- function(
   ...,
   .scale = c("response", "link"),
   .adjust = c("mvt", "bonferroni", "sidak", "none"),
-  .weights = c("cell", "proportional", "flat", "equal"),
+  .weights = c("cell", "proportional", "flat", "equal", "variable"),
+  .weights_var = NULL,
+  .component = c("conditional", "zi", "disp", "response"),
   .level = 0.95,
   .seed = 1234
 ) {
@@ -294,7 +363,17 @@ compare_by <- function(
 
   .scale <- arg_match0(.scale, c("response", "link"))
   .adjust <- arg_match0(.adjust, c("mvt", "bonferroni", "sidak", "none"))
-  .weights <- arg_match0(.weights, c("cell", "proportional", "flat", "equal"))
+  .weights <- arg_match0(
+    .weights,
+    c("cell", "proportional", "flat", "equal", "variable")
+  )
+  .component <- arg_match0(
+    .component,
+    c("conditional", "zi", "disp", "response")
+  )
+  if (.component == "conditional") {
+    .component <- "cond"
+  }
 
   assert(
     "`.results` must be a named list.",
@@ -333,6 +412,15 @@ compare_by <- function(
     !quo_is_null(quo_conditioned) && !quo_is_missing(quo_conditioned)
   )
 
+  # Get the weights
+  # Get the weights
+  if (.weights == "variable") {
+    weight_by <- sym_names({{ .weights_var }})
+    .weights <- NULL
+  } else {
+    weight_by <- NULL
+  }
+
   imap(.results, function(fit, nm) {
     df <- as_tibble(stats::model.frame(fit))
     frmla <- stats::formula(fit)
@@ -351,7 +439,9 @@ compare_by <- function(
         fit = fit,
         covariates = unique(c(covariates, conditioned, compare)),
         weights = .weights,
-        vcov_mtx = stats::vcov(fit)
+        # vcov_mtx = stats::vcov(fit),
+        component = .component,
+        weight_by = weight_by
       ),
       error = function(e) {
         cli_warn(
@@ -408,18 +498,27 @@ select_model_vars <- function(quo, df, arg_name, model_name) {
   vars
 }
 
-emm_estimate <- function(fit, covariates, weights, vcov_mtx) {
+emm_estimate <- function(
+  fit,
+  covariates,
+  weights,
+  component,
+  weight_by
+) {
   terms <- purrr::map(covariates, ~ sym(.x))
   if (length(terms) == 0L) {
     cli_abort("At least one covariate must be specified for EMM estimation.")
   }
   f <- new_formula(lhs = NULL, rhs = purrr::reduce(terms, ~ call2("*", .x, .y)))
+  if (!is.null(weight_by)) {
+    weight_by <- compute_weights(fit, covariates, variable = weight_by)
+  }
   args <- list(
     object = fit,
     specs = f,
-    weights = weights,
-    vcov. = vcov_mtx,
-    lmer.df = if (is_lmer(fit)) "satterthwaite"
+    weights = weight_by %||% weights,
+    lmer.df = if (is_lmer(fit)) "satterthwaite",
+    component = if (is_glmmTMB(fit)) component
   )
   exec(emmeans::emmeans, !!!purrr::compact(args))
 }
@@ -452,8 +551,8 @@ join_emm_tables <- function(prs, interval, test) {
     dplyr::select(
       dplyr::all_of(lvls),
       dplyr::any_of(c("estimate", "ratio")),
-      ci_lower = lower.CL,
-      ci_upper = upper.CL,
+      ci_lower = dplyr::any_of(c("lower.CL", "asymp.LCL")),
+      ci_upper = dplyr::any_of(c("upper.CL", "asymp.UCL")),
       p,
       p_adj,
       dplyr::any_of("df")
@@ -464,4 +563,22 @@ join_emm_tables <- function(prs, interval, test) {
   attr(out, "interval") <- interval
   attr(out, "test") <- test
   out
+}
+
+# Weight computation
+compute_weights <- function(fit, covariates, variable) {
+  terms <- purrr::map(covariates, ~ sym(.x))
+  if (length(terms) == 0L) {
+    cli_abort("At least one covariate must be specified for EMM estimation.")
+  }
+  f <- new_formula(lhs = NULL, rhs = purrr::reduce(terms, ~ call2("*", .x, .y)))
+  args <- list(object = fit, specs = f, weights = "show.levels")
+  out <- suppressMessages(exec(emmeans::emmeans, !!!purrr::compact(args))) |>
+    as.data.frame() |>
+    tibble::as_tibble()
+  w <- stats::model.frame(fit) |>
+    dplyr::summarise(n = dplyr::n(), .by = c(names(out), variable)) |>
+    dplyr::summarise(n = dplyr::n(), .by = names(out)) |>
+    dplyr::pull(n)
+  w / sum(w)
 }
