@@ -566,6 +566,23 @@ join_emm_tables <- function(prs, interval, test) {
 }
 
 # Weight computation
+# compute_weights <- function(fit, covariates, variable) {
+#   terms <- purrr::map(covariates, ~ sym(.x))
+#   if (length(terms) == 0L) {
+#     cli_abort("At least one covariate must be specified for EMM estimation.")
+#   }
+#   f <- new_formula(lhs = NULL, rhs = purrr::reduce(terms, ~ call2("*", .x, .y)))
+#   args <- list(object = fit, specs = f, weights = "show.levels")
+#   out <- suppressMessages(exec(emmeans::emmeans, !!!purrr::compact(args))) |>
+#     as.data.frame() |>
+#     tibble::as_tibble()
+#   w <- stats::model.frame(fit) |>
+#     dplyr::summarise(n = dplyr::n(), .by = c(names(out), variable)) |>
+#     dplyr::summarise(n = dplyr::n(), .by = names(out)) |>
+#     dplyr::pull(n)
+#   w / sum(w)
+# }
+
 compute_weights <- function(fit, covariates, variable) {
   terms <- purrr::map(covariates, ~ sym(.x))
   if (length(terms) == 0L) {
@@ -573,12 +590,28 @@ compute_weights <- function(fit, covariates, variable) {
   }
   f <- new_formula(lhs = NULL, rhs = purrr::reduce(terms, ~ call2("*", .x, .y)))
   args <- list(object = fit, specs = f, weights = "show.levels")
-  out <- suppressMessages(exec(emmeans::emmeans, !!!purrr::compact(args))) |>
+  nms <- suppressMessages(exec(emmeans::emmeans, !!!purrr::compact(args))) |>
     as.data.frame() |>
     tibble::as_tibble()
-  w <- stats::model.frame(fit) |>
-    dplyr::summarise(n = dplyr::n(), .by = c(names(out), variable)) |>
-    dplyr::summarise(n = dplyr::n(), .by = names(out)) |>
-    dplyr::pull(n)
-  w / sum(w)
+  frame <- stats::model.frame(fit)
+  out <- split(
+    frame[c(variable, names(nms))],
+    exec(interaction, !!!frame[covariates])
+  )
+  res <- lapply(out, function(x) {
+    df <- tapply(
+      x[[variable]],
+      x[names(x) != variable],
+      function(y) length(unique(y)),
+      simplify = TRUE,
+      default = 0L
+    ) |>
+      array2DF(responseName = "n") |>
+      t() |>
+      as.data.frame()
+    df[rownames(df) == "n", , drop = FALSE]
+  }) |>
+    do.call(rbind, args = _)
+  w <- apply(as.matrix(res), 2, as.numeric)
+  w / rowSums(w)
 }
