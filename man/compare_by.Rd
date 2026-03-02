@@ -28,7 +28,7 @@ compare_by(
 
 \item{.covariates}{A tidyselect specification of covariate columns.}
 
-\item{...}{Must be empty. Exists to force named arguments.}
+\item{...}{Extra arguments passed to \code{emmeans::emmeans()} when estimating marginal means. See its documentation for details.}
 
 \item{.scale}{Scale for comparisons. Either "response" (default) or "link".}
 

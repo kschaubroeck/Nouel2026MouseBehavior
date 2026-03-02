@@ -22,7 +22,7 @@ emms(
 \item{.covariates}{A tidyselect specification of covariate columns to compute
 means over.}
 
-\item{...}{Must be empty. Exists to force named arguments.}
+\item{...}{Args passed to \code{emmeans::emmeans()} when estimating marginal means. See its documentation for details.}
 
 \item{.scale}{Scale for reporting results. Either "response" (default) for
 the original response scale, or "link" for the link function scale.}

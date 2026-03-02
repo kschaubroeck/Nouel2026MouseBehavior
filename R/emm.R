@@ -8,7 +8,7 @@
 #' @param .results A named list of fitted model objects.
 #' @param .covariates A tidyselect specification of covariate columns to compute
 #'   means over.
-#' @param ... Must be empty. Exists to force named arguments.
+#' @param ... Args passed to \code{emmeans::emmeans()} when estimating marginal means. See its documentation for details.
 #' @param .scale Scale for reporting results. Either "response" (default) for
 #'   the original response scale, or "link" for the link function scale.
 #' @param .weights Method for weighting cells. One of "proportional" (default),
@@ -38,7 +38,6 @@ emms <- function(
   .level = 0.95,
   .seed = 1234
 ) {
-  check_dots_empty0(...)
   .scale <- arg_match0(.scale, c("response", "link"))
   .weights <- arg_match0(
     .weights,
@@ -127,9 +126,9 @@ emms <- function(
         fit = fit,
         covariates = vars,
         weights = .weights,
-        # vcov_mtx = stats::vcov(fit),
         component = .component,
-        weight_by = weight_by
+        weight_by = weight_by,
+        args = list2(...)
       ) |>
         confint(level = .level, type = .scale) |>
         as.data.frame() |>
@@ -176,7 +175,7 @@ emms <- function(
 #' @param .results A named list of fitted model objects.
 #' @param .compare A tidyselect specification of the factor to compare across.
 #' @param .covariates A tidyselect specification of covariate columns.
-#' @param ... Must be empty. Exists to force named arguments.
+#' @param ... Extra arguments passed to \code{emmeans::emmeans()} when estimating marginal means. See its documentation for details.
 #' @param .scale Scale for comparisons. Either "response" (default) or "link".
 #' @param .adjust Method for p-value adjustment. One of "mvt" (default,
 #'   multivariate t), "bonferroni", "sidak", or "none".
@@ -209,8 +208,6 @@ compare <- function(
   .level = 0.95,
   .seed = 1234
 ) {
-  check_dots_empty0(...)
-
   .scale <- arg_match0(.scale, c("response", "link"))
   .adjust <- arg_match0(.adjust, c("mvt", "bonferroni", "sidak", "none"))
   .weights <- arg_match0(
@@ -264,6 +261,8 @@ compare <- function(
     weight_by <- NULL
   }
 
+  args <- list2(...)
+
   imap(.results, function(fit, nm) {
     df <- as_tibble(stats::model.frame(fit))
     frmla <- stats::formula(fit)
@@ -281,9 +280,9 @@ compare <- function(
         fit = fit,
         covariates = unique(c(covariates, compare)),
         weights = .weights,
-        # vcov_mtx = stats::vcov(fit),
         component = .component,
-        weight_by = weight_by
+        weight_by = weight_by,
+        args = args
       ),
       error = function(e) {
         cli_warn(
@@ -325,7 +324,7 @@ compare <- function(
 #' @param .compare A tidyselect specification of the factor to compare across.
 #' @param .conditioned A tidyselect specification of the conditioning factor.
 #' @param .covariates A tidyselect specification of covariate columns.
-#' @param ... Must be empty. Exists to force named arguments.
+#' @param ... Extra arguments passed to \code{emmeans::emmeans()} when estimating marginal means. See its documentation for details.
 #' @param .scale Scale for comparisons. Either "response" (default) or "link".
 #' @param .adjust Method for p-value adjustment. One of "mvt" (default,
 #'   multivariate t), "bonferroni", "sidak", or "none".
@@ -359,8 +358,6 @@ compare_by <- function(
   .level = 0.95,
   .seed = 1234
 ) {
-  check_dots_empty0(...)
-
   .scale <- arg_match0(.scale, c("response", "link"))
   .adjust <- arg_match0(.adjust, c("mvt", "bonferroni", "sidak", "none"))
   .weights <- arg_match0(
@@ -421,6 +418,8 @@ compare_by <- function(
     weight_by <- NULL
   }
 
+  args <- list2(...)
+
   imap(.results, function(fit, nm) {
     df <- as_tibble(stats::model.frame(fit))
     frmla <- stats::formula(fit)
@@ -439,9 +438,9 @@ compare_by <- function(
         fit = fit,
         covariates = unique(c(covariates, conditioned, compare)),
         weights = .weights,
-        # vcov_mtx = stats::vcov(fit),
         component = .component,
-        weight_by = weight_by
+        weight_by = weight_by,
+        args = args
       ),
       error = function(e) {
         cli_warn(
@@ -503,7 +502,8 @@ emm_estimate <- function(
   covariates,
   weights,
   component,
-  weight_by
+  weight_by,
+  args
 ) {
   terms <- purrr::map(covariates, ~ sym(.x))
   if (length(terms) == 0L) {
@@ -513,14 +513,14 @@ emm_estimate <- function(
   if (!is.null(weight_by)) {
     weight_by <- compute_weights(fit, covariates, variable = weight_by)
   }
-  args <- list(
+  arguments <- list(
     object = fit,
     specs = f,
     weights = weight_by %||% weights,
     lmer.df = if (is_merMod(fit)) "satterthwaite",
     component = if (is_glmmTMB(fit)) component
   )
-  exec(emmeans::emmeans, !!!purrr::compact(args))
+  exec(emmeans::emmeans, !!!purrr::compact(c(args, arguments)))
 }
 
 join_emm_tables <- function(prs, interval, test) {
