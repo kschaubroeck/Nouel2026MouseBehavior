@@ -754,3 +754,92 @@ plot_compare_loocv <- function(m1, m2) {
       vjust = 1.7
     )
 }
+
+#' Leave-one-group-out cross-validation with a custom analysis function
+#'
+#' Performs leave-one-group-out cross-validation (LOGOCV) for a fitted model,
+#' applying a user-supplied analysis function to each held-out fold. For each
+#' unique value of `.group`, the model is re-fitted on all remaining
+#' observations and `.f` is called with the refitted model and the held-out
+#' data. Results are row-bound and annotated with the fold identifier and a
+#' fit-problem flag.
+#'
+#' @param .model A fitted model object (e.g. from `lme4::lmer()`,
+#'   `lme4::glmer()`, `glmmTMB::glmmTMB()`, `stats::lm()`, or `stats::glm()`).
+#' @param .f A function (or lambda) accepting `(model, test_data, ...)` and
+#'   returning a single data frame of results for the held-out fold. Can be
+#'   any object coercible by [rlang::as_function()].
+#' @param .data A data frame containing all variables required by `.model`.
+#' @param .group Character string naming the column in `.data` whose unique
+#'   values define the cross-validation folds.
+#' @param ... Additional arguments passed to `.f`.
+#'
+#' @return A data frame containing the row-bound outputs of `.f` across all
+#' @export
+loocv_analysis <- function(.model, .f, .data, .group, ...) {
+  .f <- rlang::as_function(.f)
+
+  groups <- vctrs::vec_group_loc(.data[[.group]])
+  locs <- groups$loc
+  keys <- groups$key
+
+  out <- vector("list", vctrs::vec_size(keys))
+  problems <- logical(vctrs::vec_size(keys))
+
+  for (i in seq_along(keys)) {
+    test_indices <- locs[[i]]
+    train_indices <- setdiff(seq_len(nrow(.data)), test_indices)
+    train_data <- .data[train_indices, ]
+    test_data <- .data[test_indices, ]
+
+    model0 <- tryCatch(
+      update(.model, data = train_data),
+      error = function(e) NULL
+    )
+
+    if (is.null(model0)) {
+      out[i] <- list(NULL)
+      problems[i] <- TRUE
+      next
+    }
+
+    problems[i] <- model_has_fit_problem(model0)
+    res <- tryCatch(
+      .f(model0, test_data, ...),
+      error = function(e) NULL
+    )
+
+    if (is.list(res) && !is.data.frame(res)) {
+      if (length(res) != 1L) {
+        out[[i]] <- list(NULL)
+        problems[i] <- TRUE
+        cli::cli_alert_danger(
+          "Analysis issue for group {.val {keys[i]}}: Result is a list of length {length(res)}, expected 1."
+        )
+        next
+      }
+      res <- res[[1L]]
+    }
+
+    if (!is.data.frame(res)) {
+      out[[i]] <- list(NULL)
+      problems[i] <- TRUE
+      cli::cli_alert_danger(
+        "Analysis issue for group {.val {keys[i]}}: Result not data frame"
+      )
+    }
+
+    out[[i]] <- res
+  }
+
+  # replace all null with empty data frame
+  out <- purrr::map(out, ~ if (is.null(.x)) tibble::tibble() else .x)
+
+  # adding keys
+  n <- vctrs::vec_c(!!!purrr::map(out, vctrs::vec_size), .ptype = integer())
+  dplyr::mutate(
+    dplyr::bind_rows(out),
+    .loo = vctrs::vec_rep_each(keys, n),
+    .problem = vctrs::vec_rep_each(problems, n)
+  )
+}

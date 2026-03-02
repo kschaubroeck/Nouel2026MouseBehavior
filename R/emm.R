@@ -51,6 +51,12 @@ emms <- function(
     .component <- "cond"
   }
 
+  if (
+    !is.list(.results) || is.list(.results) && !inherits(.results, "model_fits")
+  ) {
+    .results <- list(result = .results)
+  }
+
   assert(
     "`.results` must be a named list.",
     is_list(.results),
@@ -121,6 +127,7 @@ emms <- function(
       return(NULL)
     }
 
+    args_list <- list2(...)
     adjusted <- try_fetch(
       emm_estimate(
         fit = fit,
@@ -128,7 +135,7 @@ emms <- function(
         weights = .weights,
         component = .component,
         weight_by = weight_by,
-        args = list2(...)
+        args = args_list
       ) |>
         confint(level = .level, type = .scale) |>
         as.data.frame() |>
@@ -153,8 +160,13 @@ emms <- function(
       return(NULL)
     }
 
-    out <- dplyr::left_join(raw, adjusted, by = vars) |>
-      dplyr::relocate(measure)
+    if ("at" %in% names(args_list)) {
+      out <- adjusted |>
+        dplyr::relocate(measure)
+    } else {
+      out <- dplyr::left_join(raw, adjusted, by = vars) |>
+        dplyr::relocate(measure)
+    }
 
     attr(out, "model_formula") <- frmla
     attr(out, "data") <- df
@@ -220,6 +232,12 @@ compare <- function(
   )
   if (.component == "conditional") {
     .component <- "cond"
+  }
+
+  if (
+    !is.list(.results) || is.list(.results) && !inherits(.results, "model_fits")
+  ) {
+    .results <- list(result = .results)
   }
 
   assert(
@@ -370,6 +388,12 @@ compare_by <- function(
   )
   if (.component == "conditional") {
     .component <- "cond"
+  }
+
+  if (
+    !is.list(.results) || is.list(.results) && !inherits(.results, "model_fits")
+  ) {
+    .results <- list(result = .results)
   }
 
   assert(

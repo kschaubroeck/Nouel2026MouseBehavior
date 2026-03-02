@@ -207,5 +207,8 @@ fits <- function(.data, .models, ..., .env = caller_env()) {
     try_fetch(fit(...), error = function(e) err(e, ...))
   }
 
-  purrr::compact(imap(.models, f))
+  structure(
+    purrr::compact(imap(.models, f)),
+    class = "model_fits"
+  )
 }
