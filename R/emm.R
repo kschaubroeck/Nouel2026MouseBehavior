@@ -144,7 +144,16 @@ emms <- function(
         dplyr::select(
           measure,
           dplyr::all_of(vars),
-          adjusted = dplyr::any_of(c("emmean", "response", "rate")),
+          #adjusted = dplyr::any_of(c("emmean", "response", "rate")),
+          adjusted = dplyr::any_of(c(
+            "estimate",
+            "ratio",
+            "response",
+            "rate",
+            "prob",
+            "emmean"
+          )),
+          se = dplyr::any_of(c("SE")),
           ci_lower = dplyr::any_of(c("lower.CL", "asymp.LCL")),
           ci_upper = dplyr::any_of(c("upper.CL", "asymp.UCL"))
         ),
@@ -574,7 +583,15 @@ join_emm_tables <- function(prs, interval, test) {
   ) |>
     dplyr::select(
       dplyr::all_of(lvls),
-      dplyr::any_of(c("estimate", "ratio")),
+      dplyr::any_of(c(
+        "estimate",
+        "ratio",
+        "response",
+        "rate",
+        "prob",
+        "emmean"
+      )),
+      se = dplyr::any_of(c("SE")),
       ci_lower = dplyr::any_of(c("lower.CL", "asymp.LCL")),
       ci_upper = dplyr::any_of(c("upper.CL", "asymp.UCL")),
       p,

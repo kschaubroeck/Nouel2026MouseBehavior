@@ -11,13 +11,7 @@ simulate_residuals0 <- function(
   type <- model_type(model)
 
   if (is.na(type)) {
-    cli_warn(
-      c(
-        "Don't know how to simulate residuals for {.val {name}}.",
-        "x" = "Model class {.cls {class(model)}} is not supported."
-      )
-    )
-    return(NULL)
+    type = ""
   }
 
   sim_args <- list2(...)

@@ -776,7 +776,7 @@ plot_compare_loocv <- function(m1, m2) {
 #'
 #' @return A data frame containing the row-bound outputs of `.f` across all
 #' @export
-loocv_analysis <- function(.model, .f, .data, .group, ...) {
+loocv_analysis <- function(.model, .f, .data, .group, ..., .weights = NULL) {
   .f <- rlang::as_function(.f)
 
   groups <- vctrs::vec_group_loc(.data[[.group]])
@@ -792,10 +792,22 @@ loocv_analysis <- function(.model, .f, .data, .group, ...) {
     train_data <- .data[train_indices, ]
     test_data <- .data[test_indices, ]
 
-    model0 <- tryCatch(
-      update(.model, data = train_data),
-      error = function(e) NULL
-    )
+    if (is.function(.model)) {
+      model0 <- tryCatch(
+        .model(train_data),
+        error = function(e) NULL
+      )
+    } else {
+      model0 <- tryCatch(
+        update(.model, data = train_data),
+        error = function(e) NULL
+      )
+    }
+
+    # model0 <- tryCatch(
+    #   update(.model, data = train_data),
+    #   error = function(e) NULL
+    # )
 
     if (is.null(model0)) {
       out[i] <- list(NULL)

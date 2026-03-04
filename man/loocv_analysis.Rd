@@ -4,7 +4,7 @@
 \alias{loocv_analysis}
 \title{Leave-one-group-out cross-validation with a custom analysis function}
 \usage{
-loocv_analysis(.model, .f, .data, .group, ...)
+loocv_analysis(.model, .f, .data, .group, ..., .weights = NULL)
 }
 \arguments{
 \item{.model}{A fitted model object (e.g. from \code{lme4::lmer()},
